@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Add Course - Navigated Learning</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: #c8c8c8;
+    color: #333;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ===== Header ===== */
+  .header {
+    background: linear-gradient(135deg, #a0a0a0, #b8b8b8);
+    padding: 18px 32px;
+    border-bottom: 3px solid #0d6efd;
+  }
+  .header h1 {
+    font-size: 28px;
+    font-weight: 400;
+    color: #222;
+  }
+
+  /* ===== Main Content ===== */
+  .main {
+    flex: 1;
+    background: #e8e8e8;
+    padding: 24px 32px 100px 32px;
+  }
+
+  /* ===== Form Fields ===== */
+  .form-input {
+    width: 100%;
+    padding: 14px 16px;
+    font-size: 15px;
+    font-family: inherit;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background: #fff;
+    color: #333;
+    outline: none;
+    transition: border-color 0.2s;
+    margin-bottom: 12px;
+  }
+  .form-input:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.12);
+  }
+  .form-input::placeholder {
+    color: #888;
+  }
+
+  .form-textarea {
+    width: 100%;
+    padding: 14px 16px;
+    font-size: 15px;
+    font-family: inherit;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background: #fff;
+    color: #333;
+    outline: none;
+    resize: vertical;
+    min-height: 120px;
+    transition: border-color 0.2s;
+    margin-bottom: 12px;
+  }
+  .form-textarea:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.12);
+  }
+  .form-textarea::placeholder {
+    color: #888;
+  }
+
+  /* ===== Sections ===== */
+  .section {
+    margin-top: 8px;
+    margin-bottom: 4px;
+  }
+  .section-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #222;
+    margin-bottom: 10px;
+  }
+
+  /* ===== Info Banner ===== */
+  .info-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #d4f5ff;
+    border-radius: 24px;
+    padding: 10px 20px;
+    margin-bottom: 14px;
+    font-size: 14px;
+    color: #1a5276;
+    transition: opacity 0.3s;
+  }
+  .info-banner.hidden {
+    display: none;
+  }
+  .info-banner .close-banner {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: #1a5276;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+    opacity: 0.6;
+    transition: opacity 0.15s;
+  }
+  .info-banner .close-banner:hover {
+    opacity: 1;
+  }
+
+  /* ===== Item Row (Module / Topic) ===== */
+  .item-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    overflow: hidden;
+    transition: box-shadow 0.2s;
+  }
+  .item-row:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .item-row.dragging {
+    opacity: 0.5;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  }
+
+  .item-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 42px;
+    align-self: stretch;
+    background: #6c757d;
+    position: relative;
+    cursor: grab;
+  }
+  .item-number:active { cursor: grabbing; }
+  .item-number .num {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background: #0d6efd;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .item-number .grip {
+    color: rgba(255,255,255,0.5);
+    font-size: 18px;
+    letter-spacing: 2px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    align-items: center;
+  }
+  .item-number .grip span {
+    display: block;
+    width: 4px;
+    height: 4px;
+    background: rgba(255,255,255,0.4);
+    border-radius: 50%;
+  }
+
+  .item-content {
+    flex: 1;
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .item-content .row {
+    display: flex;
+    gap: 10px;
+  }
+
+  .item-content input,
+  .item-content textarea,
+  .item-content select {
+    flex: 1;
+    padding: 10px 12px;
+    font-size: 14px;
+    font-family: inherit;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background: #fff;
+    color: #333;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .item-content input:focus,
+  .item-content textarea:focus,
+  .item-content select:focus {
+    border-color: #0d6efd;
+  }
+  .item-content input::placeholder,
+  .item-content textarea::placeholder {
+    color: #999;
+  }
+  .item-content textarea {
+    resize: vertical;
+    min-height: 80px;
+  }
+  .item-content select {
+    cursor: pointer;
+    appearance: auto;
+  }
+
+  .item-content .module-dropdown-wrapper {
+    flex: 1;
+    position: relative;
+  }
+  .item-content .module-dropdown-wrapper label {
+    position: absolute;
+    top: -6px;
+    left: 10px;
+    background: #fff;
+    padding: 0 4px;
+    font-size: 11px;
+    color: #888;
+  }
+
+  .item-actions {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .reorder-btns {
+    display: flex;
+    flex-direction: column;
+    width: 36px;
+  }
+  .reorder-btns button {
+    flex: 1;
+    border: none;
+    background: #0d6efd;
+    color: #fff;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+    padding: 6px 0;
+  }
+  .reorder-btns button:first-child {
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+  }
+  .reorder-btns button:hover {
+    background: #0b5ed7;
+  }
+  .reorder-btns button:disabled {
+    background: #6c9ce6;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  .delete-btn {
+    width: 42px;
+    border: none;
+    background: #dc3545;
+    color: #fff;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+  }
+  .delete-btn:hover {
+    background: #bb2d3b;
+  }
+
+  /* ===== Add Button ===== */
+  .add-btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #00b4d8, #0077b6);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+    margin-bottom: 16px;
+  }
+  .add-btn:hover {
+    background: linear-gradient(135deg, #0096c7, #005f8c);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  }
+
+  /* ===== Footer ===== */
+  .footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 32px;
+    background: #d0d0d0;
+    border-top: 1px solid #bbb;
+    z-index: 100;
+  }
+
+  .btn-cancel {
+    padding: 10px 24px;
+    border: none;
+    border-radius: 24px;
+    background: #dc3545;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .btn-cancel:hover {
+    background: #bb2d3b;
+  }
+
+  .btn-submit {
+    padding: 10px 28px;
+    border: none;
+    border-radius: 6px;
+    background: #1a6b3c;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .btn-submit:hover {
+    background: #145530;
+  }
+  .btn-submit:disabled {
+    background: #6c8c7a;
+    cursor: not-allowed;
+  }
+
+  /* ===== Validation ===== */
+  .error-shake {
+    animation: shake 0.4s ease;
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+  }
+
+  .field-error {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.15) !important;
+  }
+  .error-msg {
+    color: #dc3545;
+    font-size: 12px;
+    margin-top: -8px;
+    margin-bottom: 8px;
+    display: none;
+  }
+  .error-msg.visible {
+    display: block;
+  }
+
+  /* Toast notification */
+  .toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 14px 24px;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 200;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    transform: translateX(120%);
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .toast.show { transform: translateX(0); }
+  .toast.success { background: #1a9a6c; }
+  .toast.error { background: #dc3545; }
+  .toast.info { background: #0d6efd; }
+
+  /* Character counter */
+  .char-count {
+    position: absolute;
+    bottom: 8px;
+    right: 12px;
+    font-size: 11px;
+    color: #aaa;
+    pointer-events: none;
+  }
+  .textarea-wrapper {
+    position: relative;
+    width: 100%;
+  }
+  .textarea-wrapper textarea {
+    width: 100%;
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <h1>Add Course</h1>
+</div>
+
+<!-- Main Content -->
+<div class="main">
+  <!-- Course Name -->
+  <input type="text" class="form-input" id="course-name" placeholder="Course Name" maxlength="100">
+  <div class="error-msg" id="err-name">Please enter a course name.</div>
+
+  <!-- Course Description -->
+  <div class="textarea-wrapper">
+    <textarea class="form-textarea" id="course-desc" placeholder="Course Description (0/50)" maxlength="500"></textarea>
+  </div>
+
+  <!-- ===== Modules Section ===== -->
+  <div class="section">
+    <h2 class="section-title">Modules</h2>
+
+    <div class="info-banner" id="module-banner">
+      <span>Please arrange the modules in increasing order of complexity.</span>
+      <button class="close-banner" onclick="this.parentElement.classList.add('hidden')">×</button>
+    </div>
+
+    <div id="modules-list"></div>
+
+    <button class="add-btn" id="add-module-btn" onclick="addModule()">+ Add Module</button>
+  </div>
+
+  <!-- ===== Topics Section ===== -->
+  <div class="section">
+    <h2 class="section-title">Topics</h2>
+
+    <div class="info-banner" id="topic-banner">
+      <span>Please arrange the topics in increasing order of complexity.</span>
+      <button class="close-banner" onclick="this.parentElement.classList.add('hidden')">×</button>
+    </div>
+
+    <div id="topics-list"></div>
+
+    <button class="add-btn" id="add-topic-btn" onclick="addTopic()">+ Add Topic</button>
+  </div>
+</div>
+
+<!-- Footer -->
+<div class="footer">
+  <button class="btn-cancel" onclick="handleCancel()">Cancel</button>
+  <button class="btn-submit" id="submit-btn" onclick="handleSubmit()">Submit</button>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+let modules = [];
+let topics = [];
+let moduleIdCounter = 0;
+let topicIdCounter = 0;
+
+// ============================================================
+// MODULES
+// ============================================================
+function addModule() {
+  const id = ++moduleIdCounter;
+  modules.push({ id, name: '' });
+  renderModules();
+  // Focus the new input
+  setTimeout(() => {
+    const input = document.querySelector(`#module-${id} input`);
+    if (input) input.focus();
+  }, 50);
+}
+
+function deleteModule(id) {
+  modules = modules.filter(m => m.id !== id);
+  // Also clear topics pointing to this module
+  topics.forEach(t => {
+    if (t.moduleId === id) t.moduleId = '';
+  });
+  renderModules();
+  renderTopics();
+}
+
+function moveModule(id, direction) {
+  const idx = modules.findIndex(m => m.id === id);
+  if (direction === 'up' && idx > 0) {
+    [modules[idx], modules[idx - 1]] = [modules[idx - 1], modules[idx]];
+  } else if (direction === 'down' && idx < modules.length - 1) {
+    [modules[idx], modules[idx + 1]] = [modules[idx + 1], modules[idx]];
+  }
+  renderModules();
+  renderTopics(); // re-render dropdowns
+}
+
+function updateModuleName(id, value) {
+  const mod = modules.find(m => m.id === id);
+  if (mod) mod.name = value;
+  // Update topic dropdowns without full re-render
+  updateTopicDropdowns();
+}
+
+function renderModules() {
+  const list = document.getElementById('modules-list');
+  list.innerHTML = '';
+
+  modules.forEach((mod, idx) => {
+    const row = document.createElement('div');
+    row.className = 'item-row';
+    row.id = `module-${mod.id}`;
+    row.draggable = false;
+
+    row.innerHTML = `
+      <div class="item-number" title="Drag to reorder">
+        <div class="num">${idx + 1}</div>
+        <div class="grip">
+          <span></span><span></span><span></span>
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+      <div class="item-content">
+        <input type="text" placeholder="Module Name" value="${escapeHtml(mod.name)}"
+               oninput="updateModuleName(${mod.id}, this.value)" maxlength="100">
+      </div>
+      <div class="item-actions">
+        <div class="reorder-btns">
+          <button onclick="moveModule(${mod.id}, 'up')" ${idx === 0 ? 'disabled' : ''} title="Move up">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+          </button>
+          <button onclick="moveModule(${mod.id}, 'down')" ${idx === modules.length - 1 ? 'disabled' : ''} title="Move down">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </div>
+        <button class="delete-btn" onclick="deleteModule(${mod.id})" title="Delete module">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </button>
+      </div>
+    `;
+
+    list.appendChild(row);
+  });
+}
+
+// ============================================================
+// TOPICS
+// ============================================================
+function addTopic() {
+  const id = ++topicIdCounter;
+  topics.push({ id, name: '', description: '', moduleId: '' });
+  renderTopics();
+  setTimeout(() => {
+    const input = document.querySelector(`#topic-${id} input`);
+    if (input) input.focus();
+  }, 50);
+}
+
+function deleteTopic(id) {
+  topics = topics.filter(t => t.id !== id);
+  renderTopics();
+}
+
+function moveTopic(id, direction) {
+  const idx = topics.findIndex(t => t.id === id);
+  if (direction === 'up' && idx > 0) {
+    [topics[idx], topics[idx - 1]] = [topics[idx - 1], topics[idx]];
+  } else if (direction === 'down' && idx < topics.length - 1) {
+    [topics[idx], topics[idx + 1]] = [topics[idx + 1], topics[idx]];
+  }
+  renderTopics();
+}
+
+function updateTopicField(id, field, value) {
+  const topic = topics.find(t => t.id === id);
+  if (topic) topic[field] = value;
+
+  // Update char counter if description
+  if (field === 'description') {
+    const counter = document.querySelector(`#topic-${id} .char-count`);
+    if (counter) counter.textContent = `${value.length}/50`;
+  }
+}
+
+function updateTopicDropdowns() {
+  document.querySelectorAll('.topic-module-select').forEach(select => {
+    const currentVal = select.value;
+    const options = ['<option value="">Select Module</option>'];
+    modules.forEach(m => {
+      const name = m.name || `Module ${modules.indexOf(m) + 1}`;
+      options.push(`<option value="${m.id}" ${currentVal == m.id ? 'selected' : ''}>${escapeHtml(name)}</option>`);
+    });
+    select.innerHTML = options.join('');
+  });
+}
+
+function renderTopics() {
+  const list = document.getElementById('topics-list');
+  list.innerHTML = '';
+
+  topics.forEach((topic, idx) => {
+    const row = document.createElement('div');
+    row.className = 'item-row';
+    row.id = `topic-${topic.id}`;
+
+    const moduleOptions = modules.map(m => {
+      const name = m.name || `Module ${modules.indexOf(m) + 1}`;
+      return `<option value="${m.id}" ${topic.moduleId == m.id ? 'selected' : ''}>${escapeHtml(name)}</option>`;
+    }).join('');
+
+    row.innerHTML = `
+      <div class="item-number" title="Drag to reorder">
+        <div class="num">${idx + 1}</div>
+        <div class="grip">
+          <span></span><span></span><span></span>
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+      <div class="item-content">
+        <div class="row">
+          <input type="text" placeholder="Topic Name" value="${escapeHtml(topic.name)}"
+                 oninput="updateTopicField(${topic.id}, 'name', this.value)" maxlength="100">
+          <div class="module-dropdown-wrapper">
+            <label>Module</label>
+            <select class="topic-module-select" onchange="updateTopicField(${topic.id}, 'moduleId', this.value)">
+              <option value="">Select Module</option>
+              ${moduleOptions}
+            </select>
+          </div>
+        </div>
+        <div class="textarea-wrapper">
+          <textarea placeholder="Topic Description (0/50)"
+                    oninput="updateTopicField(${topic.id}, 'description', this.value)"
+                    maxlength="500">${escapeHtml(topic.description)}</textarea>
+          <div class="char-count">${topic.description.length}/50</div>
+        </div>
+      </div>
+      <div class="item-actions">
+        <div class="reorder-btns">
+          <button onclick="moveTopic(${topic.id}, 'up')" ${idx === 0 ? 'disabled' : ''} title="Move up">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+          </button>
+          <button onclick="moveTopic(${topic.id}, 'down')" ${idx === topics.length - 1 ? 'disabled' : ''} title="Move down">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </div>
+        <button class="delete-btn" onclick="deleteTopic(${topic.id})" title="Delete topic">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </button>
+      </div>
+    `;
+
+    list.appendChild(row);
+  });
+}
+
+// ============================================================
+// COURSE DESCRIPTION COUNTER
+// ============================================================
+const courseDesc = document.getElementById('course-desc');
+courseDesc.addEventListener('input', function() {
+  this.placeholder = `Course Description (${this.value.length}/50)`;
+});
+
+// ============================================================
+// FORM ACTIONS
+// ============================================================
+function handleSubmit() {
+  // Clear previous errors
+  document.querySelectorAll('.field-error').forEach(el => el.classList.remove('field-error'));
+  document.querySelectorAll('.error-msg').forEach(el => el.classList.remove('visible'));
+
+  const courseName = document.getElementById('course-name').value.trim();
+  let hasError = false;
+
+  // Validate course name
+  if (!courseName) {
+    const nameInput = document.getElementById('course-name');
+    nameInput.classList.add('field-error', 'error-shake');
+    document.getElementById('err-name').classList.add('visible');
+    setTimeout(() => nameInput.classList.remove('error-shake'), 400);
+    hasError = true;
+  }
+
+  // Validate at least 1 module
+  if (modules.length === 0) {
+    showToast('Please add at least one module.', 'error');
+    hasError = true;
+  }
+
+  // Validate module names
+  modules.forEach(m => {
+    if (!m.name.trim()) {
+      const input = document.querySelector(`#module-${m.id} input`);
+      if (input) {
+        input.classList.add('field-error', 'error-shake');
+        setTimeout(() => input.classList.remove('error-shake'), 400);
+      }
+      hasError = true;
+    }
+  });
+
+  if (hasError) return;
+
+  // Build course object
+  const course = {
+    id: 'course_' + Date.now(),
+    name: courseName,
+    description: document.getElementById('course-desc').value.trim(),
+    modules: modules.map((m, i) => ({
+      order: i + 1,
+      name: m.name.trim(),
+    })),
+    topics: topics.map((t, i) => ({
+      order: i + 1,
+      name: t.name.trim(),
+      description: t.description.trim(),
+      moduleId: t.moduleId,
+    })),
+    role: 'TA',
+    createdAt: new Date().toISOString(),
+  };
+
+  // Save to localStorage
+  saveCourseToStorage(course);
+
+  console.log('Course submitted:', course);
+
+  // Disable submit button to prevent double-submit
+  const submitBtn = document.getElementById('submit-btn');
+  submitBtn.textContent = 'Creating...';
+  submitBtn.disabled = true;
+
+  showToast('Course created successfully! Redirecting...', 'success');
+
+  // Redirect back to homepage after a short delay
+  setTimeout(() => {
+    window.location.href = 'homepage.html';
+  }, 1000);
+}
+
+// ============================================================
+// LOCAL STORAGE FOR COURSES
+// ============================================================
+function saveCourseToStorage(course) {
+  let courses = [];
+  try {
+    const stored = localStorage.getItem('gooruCourses');
+    if (stored) courses = JSON.parse(stored);
+  } catch (e) { courses = []; }
+
+  courses.push(course);
+  localStorage.setItem('gooruCourses', JSON.stringify(courses));
+}
+
+function getCoursesFromStorage() {
+  try {
+    const stored = localStorage.getItem('gooruCourses');
+    return stored ? JSON.parse(stored) : [];
+  } catch (e) { return []; }
+}
+
+function handleCancel() {
+  if (modules.length > 0 || topics.length > 0 || document.getElementById('course-name').value.trim()) {
+    if (confirm('Are you sure you want to cancel? All changes will be lost.')) {
+      window.location.href = 'homepage.html';
+    }
+  } else {
+    window.location.href = 'homepage.html';
+  }
+}
+
+function resetForm() {
+  document.getElementById('course-name').value = '';
+  document.getElementById('course-desc').value = '';
+  courseDesc.placeholder = 'Course Description (0/50)';
+  modules = [];
+  topics = [];
+  renderModules();
+  renderTopics();
+  showToast('Form cleared.', 'info');
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function showToast(message, type = 'info') {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.className = `toast ${type} show`;
+  setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Remove field error on input
+document.getElementById('course-name').addEventListener('input', function() {
+  this.classList.remove('field-error');
+  document.getElementById('err-name').classList.remove('visible');
+});
+</script>
+</body>
+</html>

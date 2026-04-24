@@ -1,0 +1,2706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gooru Learning Navigator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.3.2/pixi.min.js"></script>
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: #f8fafc;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    user-select: none;
+  }
+
+  #pixi-container {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    cursor: grab;
+  }
+  #pixi-container.grabbing { cursor: grabbing; }
+
+  /* Top Bar */
+  .top-bar {
+    position: fixed;
+    top: 12px; left: 12px; right: 12px;
+    height: 52px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04);
+    display: flex;
+    align-items: center;
+    padding: 0 8px 0 16px;
+    z-index: 100;
+    gap: 8px;
+  }
+  .breadcrumb {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 14px; color: #444; flex-shrink: 0;
+  }
+  .breadcrumb .sep { color: #bbb; }
+  .breadcrumb .bc-home {
+    display: flex; align-items: center; gap: 4px;
+    font-weight: 500; color: #333; cursor: pointer;
+  }
+  .breadcrumb .bc-home:hover { color: #1a9a6c; }
+  .breadcrumb .bc-home svg { width: 16px; height: 16px; color: #888; }
+  .breadcrumb .bc-count {
+    background: #f0f0f0; padding: 3px 10px; border-radius: 6px;
+    font-size: 13px; color: #555; cursor: pointer;
+  }
+  .breadcrumb .bc-count:hover { background: #e8e8e8; }
+
+  .top-spacer { flex: 1; }
+
+  .search-box {
+    display: flex; align-items: center; gap: 6px;
+    background: #f5f5f5; border-radius: 8px; padding: 7px 12px;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .search-box:hover { background: #eee; }
+  .search-box svg { width: 16px; height: 16px; color: #888; }
+  .search-box input {
+    border: none; background: transparent; font-size: 13px;
+    color: #333; outline: none; width: 160px; font-family: inherit;
+  }
+  .search-box input::placeholder { color: #aaa; }
+
+  .filter-btn {
+    display: flex; align-items: center; gap: 5px;
+    padding: 7px 14px; border-radius: 8px;
+    border: 1px solid #e0e0e0; background: #fff;
+    font-size: 13px; color: #555; cursor: pointer;
+    font-family: inherit; transition: all 0.15s;
+  }
+  .filter-btn:hover { background: #f5f5f5; border-color: #ccc; }
+  .filter-btn svg { width: 14px; height: 14px; }
+
+  /* View Mode Toggle */
+  .view-mode-toggle {
+    display: flex; border: 1px solid #e0e0e0;
+    border-radius: 8px; overflow: hidden; background: #fff;
+  }
+  .view-mode-toggle button {
+    padding: 7px 14px; border: none; background: #fff;
+    cursor: pointer; color: #666; font-size: 12px; font-weight: 600;
+    font-family: inherit; display: flex; align-items: center; gap: 5px;
+    transition: all 0.15s; white-space: nowrap;
+  }
+  .view-mode-toggle button:not(:last-child) { border-right: 1px solid #e0e0e0; }
+  .view-mode-toggle button.active { background: #1a9a6c; color: #fff; }
+  .view-mode-toggle button:not(.active):hover { background: #f5f5f5; }
+  .view-mode-toggle button svg { width: 14px; height: 14px; }
+
+  .top-actions { display: flex; gap: 6px; align-items: center; }
+  .share-btn {
+    display: flex; align-items: center; gap: 5px;
+    padding: 7px 14px; border-radius: 8px;
+    border: 1px solid #e0e0e0; background: #fff;
+    font-size: 13px; color: #555; cursor: pointer;
+    font-family: inherit; transition: all 0.15s;
+  }
+  .share-btn:hover { background: #f5f5f5; }
+  .share-btn svg { width: 14px; height: 14px; }
+
+  .add-btn {
+    display: flex; align-items: center; gap: 5px;
+    padding: 8px 16px; border-radius: 8px; border: none;
+    background: #1a9a6c; font-size: 13px; font-weight: 600;
+    color: #fff; cursor: pointer; font-family: inherit; transition: all 0.15s;
+  }
+  .add-btn:hover { background: #158a5e; }
+
+  /* Map controls panel (right side, map view only) */
+  .map-controls-panel {
+    position: fixed; right: 16px; top: 80px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04);
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    overflow: hidden;
+    min-width: 52px;
+  }
+  .mc-btn {
+    padding: 14px 20px;
+    border: none;
+    background: #fff;
+    cursor: pointer;
+    color: #555;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.15s;
+    white-space: nowrap;
+    width: 100%;
+    text-align: center;
+  }
+  .mc-btn:hover { background: #f5f5f5; color: #333; }
+  .mc-btn.active { background: #e8f5ee; color: #1a9a6c; }
+  .mc-btn svg { width: 16px; height: 16px; }
+  .mc-divider {
+    height: 1px;
+    background: #eee;
+    margin: 0;
+  }
+  .mc-btn.path-active {
+    background: #1a9a6c;
+    color: #fff;
+  }
+  .mc-btn.path-active svg { stroke: #fff; }
+  .mc-btn.path-active:hover { background: #158a5e; }
+
+  /* Bottom controls */
+  .bottom-controls {
+    position: fixed; bottom: 16px; right: 16px;
+    display: flex; gap: 6px; z-index: 100;
+  }
+  .zoom-group {
+    display: flex; flex-direction: column; background: #fff;
+    border-radius: 10px; overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  .zoom-btn {
+    width: 36px; height: 36px; border: none; background: #fff;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: #555; font-size: 20px; font-weight: 300;
+    transition: all 0.15s;
+  }
+  .zoom-btn:hover { background: #f0f0f0; color: #333; }
+  .zoom-btn:first-child { border-bottom: 1px solid #eee; }
+
+  /* Detail Panel */
+  .detail-panel {
+    position: fixed; left: 16px; bottom: 16px;
+    width: 360px; max-height: 400px; background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.04);
+    z-index: 100; overflow: hidden;
+    transform: translateY(120%);
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .detail-panel.open { transform: translateY(0); }
+  .dp-header { padding: 20px 20px 0 20px; }
+  .dp-type {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 6px; font-size: 11px;
+    font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    margin-bottom: 10px;
+  }
+  .dp-title { font-size: 18px; font-weight: 700; color: #1a1a1a; margin-bottom: 4px; line-height: 1.3; }
+  .dp-subtitle { font-size: 13px; color: #888; margin-bottom: 14px; }
+  .dp-meta {
+    display: flex; gap: 16px; padding: 12px 20px;
+    border-top: 1px solid #f0f0f0; border-bottom: 1px solid #f0f0f0;
+  }
+  .dp-meta-item { font-size: 12px; color: #888; }
+  .dp-meta-item span { display: block; font-size: 13px; font-weight: 600; color: #333; margin-top: 2px; }
+  .dp-actions { display: flex; gap: 8px; padding: 14px 20px; }
+  .dp-action-primary {
+    flex: 1; padding: 10px; border-radius: 8px; border: none;
+    font-size: 14px; font-weight: 600; color: #fff; cursor: pointer;
+    font-family: inherit; transition: all 0.15s;
+  }
+  .dp-action-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+  .dp-action-secondary {
+    padding: 10px 16px; border-radius: 8px;
+    border: 1px solid #e0e0e0; background: #fff;
+    font-size: 13px; color: #555; cursor: pointer;
+    font-family: inherit; transition: all 0.15s;
+  }
+  .dp-action-secondary:hover { background: #f5f5f5; }
+  .dp-close {
+    position: absolute; top: 12px; right: 12px;
+    width: 28px; height: 28px; border-radius: 50%;
+    border: none; background: #f0f0f0; color: #888;
+    font-size: 16px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .dp-close:hover { background: #e0e0e0; color: #333; }
+
+  /* Tooltip */
+  .tooltip {
+    position: fixed; padding: 8px 12px; background: #333;
+    border-radius: 8px; font-size: 13px; color: #fff;
+    pointer-events: none; z-index: 200; opacity: 0;
+    transition: opacity 0.12s; max-width: 240px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  }
+  .tooltip.visible { opacity: 1; }
+  .tooltip .tt-title { font-weight: 600; margin-bottom: 2px; }
+  .tooltip .tt-sub { font-size: 11px; color: #bbb; }
+
+  /* Legend */
+  .legend-panel {
+    position: fixed; left: 16px; bottom: 16px;
+    background: #fff; border-radius: 12px; padding: 14px 18px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.04);
+    z-index: 99; display: none;
+  }
+  .legend-panel.visible { display: block; }
+  .legend-panel h4 {
+    font-size: 12px; font-weight: 700; color: #888;
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;
+  }
+  .legend-row {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 6px; font-size: 13px; color: #555;
+  }
+  .legend-icon {
+    width: 22px; height: 22px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; color: #fff; font-weight: 700;
+  }
+
+  /* Loading */
+  .loading-overlay {
+    position: fixed; inset: 0; background: #f8fafc;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 1000; transition: opacity 0.5s;
+  }
+  .loading-overlay.hidden { opacity: 0; pointer-events: none; }
+  .lds-ring { display: inline-block; position: relative; width: 40px; height: 40px; }
+  .lds-ring div {
+    box-sizing: border-box; display: block; position: absolute;
+    width: 32px; height: 32px; margin: 4px;
+    border: 3px solid #1a9a6c; border-radius: 50%;
+    border-color: #1a9a6c transparent transparent transparent;
+    animation: lds-ring 1s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+  }
+  .lds-ring div:nth-child(1) { animation-delay: -0.3s; }
+  .lds-ring div:nth-child(2) { animation-delay: -0.2s; }
+  .lds-ring div:nth-child(3) { animation-delay: -0.1s; }
+  @keyframes lds-ring { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  .loading-text { margin-top: 16px; font-size: 14px; color: #888; }
+
+  /* Add Resource Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 500; opacity: 0; pointer-events: none;
+    transition: opacity 0.25s; backdrop-filter: blur(2px);
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: auto; }
+  .modal-box {
+    background: #fff; border-radius: 16px;
+    padding: 28px 32px 24px; width: 440px; max-width: 92vw;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+    transform: scale(0.95) translateY(10px);
+    transition: transform 0.3s cubic-bezier(0.16,1,0.3,1);
+  }
+  .modal-overlay.open .modal-box { transform: scale(1) translateY(0); }
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 22px;
+  }
+  .modal-header h2 { font-size: 20px; font-weight: 700; color: #1a1a1a; margin: 0; }
+  .modal-close {
+    width: 32px; height: 32px; border-radius: 50%; border: none;
+    background: #f0f0f0; color: #888; font-size: 18px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .modal-close:hover { background: #e0e0e0; color: #333; }
+  .modal-field { margin-bottom: 16px; }
+  .modal-field label {
+    display: block; font-size: 13px; font-weight: 600; color: #444;
+    margin-bottom: 6px;
+  }
+  .modal-field input, .modal-field select {
+    width: 100%; padding: 10px 14px; font-size: 14px; font-family: inherit;
+    border: 1px solid #ddd; border-radius: 8px; background: #fff; color: #333;
+    outline: none; transition: border-color 0.2s;
+  }
+  .modal-field input:focus, .modal-field select:focus {
+    border-color: #1a9a6c; box-shadow: 0 0 0 2px rgba(26,154,108,0.12);
+  }
+  .modal-field select { cursor: pointer; appearance: auto; }
+  .modal-field input::placeholder { color: #aaa; }
+  .modal-field .file-upload-area {
+    border: 2px dashed #ddd; border-radius: 8px; padding: 20px;
+    text-align: center; cursor: pointer; transition: all 0.2s;
+    background: #fafafa; color: #888; font-size: 13px;
+  }
+  .modal-field .file-upload-area:hover { border-color: #1a9a6c; background: #f0faf5; }
+  .modal-field .file-upload-area.has-file { border-color: #1a9a6c; background: #f0faf5; color: #1a9a6c; }
+  .modal-submit {
+    width: 100%; padding: 11px; border-radius: 8px; border: none;
+    background: #1a9a6c; color: #fff; font-size: 14px; font-weight: 600;
+    cursor: pointer; font-family: inherit; transition: all 0.15s; margin-top: 4px;
+  }
+  .modal-submit:hover { background: #158a5e; }
+  .modal-submit:disabled { background: #8ec4ad; cursor: not-allowed; }
+
+  /* Empty state */
+  .empty-map-state {
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center; z-index: 50; pointer-events: none;
+  }
+  .empty-map-state .empty-icon { font-size: 56px; margin-bottom: 16px; opacity: 0.5; }
+  .empty-map-state .empty-title { font-size: 20px; font-weight: 700; color: #555; margin-bottom: 8px; }
+  .empty-map-state .empty-desc { font-size: 14px; color: #888; margin-bottom: 20px; line-height: 1.5; }
+  .empty-map-state .empty-add-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 24px; border-radius: 8px; border: none;
+    background: #1a9a6c; color: #fff; font-size: 14px; font-weight: 600;
+    cursor: pointer; pointer-events: auto; font-family: inherit; transition: all 0.15s;
+  }
+  .empty-map-state .empty-add-btn:hover { background: #158a5e; }
+
+  /* Generate Map overlay */
+  .generate-map-overlay {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 90; pointer-events: none;
+  }
+  .generate-map-overlay .gen-card {
+    background: #fff; border-radius: 16px; padding: 32px 40px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    text-align: center; pointer-events: auto;
+  }
+  .generate-map-overlay .gen-icon { font-size: 48px; margin-bottom: 12px; }
+  .generate-map-overlay .gen-title {
+    font-size: 18px; font-weight: 700; color: #1a1a1a; margin-bottom: 6px;
+  }
+  .generate-map-overlay .gen-desc {
+    font-size: 13px; color: #888; margin-bottom: 20px; line-height: 1.5;
+  }
+  .generate-map-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 32px; border-radius: 10px; border: none;
+    background: #1a9a6c; color: #fff; font-size: 15px; font-weight: 600;
+    cursor: pointer; font-family: inherit; transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(26,154,108,0.3);
+  }
+  .generate-map-btn:hover { background: #158a5e; transform: translateY(-1px); }
+  .generate-map-btn svg { width: 18px; height: 18px; }
+
+  /* Generating animation */
+  .generating-text {
+    font-size: 15px; font-weight: 600; color: #1a9a6c;
+    display: none; align-items: center; gap: 10px;
+  }
+  .generating-text.active { display: flex; }
+  .gen-spinner {
+    width: 20px; height: 20px; border: 2.5px solid #e0e0e0;
+    border-top-color: #1a9a6c; border-radius: 50%;
+    animation: lds-ring 0.8s linear infinite;
+  }
+
+  /* Toast */
+  .toast-notification {
+    position: fixed; top: 20px; right: 20px;
+    padding: 14px 24px; border-radius: 10px;
+    color: #fff; font-size: 14px; font-weight: 500;
+    z-index: 600; box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    transform: translateX(120%);
+    transition: transform 0.35s cubic-bezier(0.16,1,0.3,1);
+  }
+  .toast-notification.show { transform: translateX(0); }
+  .toast-notification.success { background: #1a9a6c; }
+  .toast-notification.error { background: #dc3545; }
+
+  /* Mapbox container */
+  #mapbox-container {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+    display: none;
+  }
+  #mapbox-container .mapboxgl-canvas { outline: none; }
+
+
+
+  /* Mapbox Token Input */
+  .mapbox-token-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 500; backdrop-filter: blur(2px);
+  }
+  .mapbox-token-box {
+    background: #fff; border-radius: 16px;
+    padding: 28px 32px 24px; width: 460px; max-width: 92vw;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+  }
+  .mapbox-token-box h2 {
+    font-size: 20px; font-weight: 700; color: #1a1a1a; margin: 0 0 8px;
+  }
+  .mapbox-token-box p {
+    font-size: 13px; color: #888; margin: 0 0 18px; line-height: 1.5;
+  }
+  .mapbox-token-box input {
+    width: 100%; padding: 10px 14px; font-size: 14px; font-family: inherit;
+    border: 1px solid #ddd; border-radius: 8px; background: #fff; color: #333;
+    outline: none; transition: border-color 0.2s; margin-bottom: 14px;
+  }
+  .mapbox-token-box input:focus {
+    border-color: #1a9a6c; box-shadow: 0 0 0 2px rgba(26,154,108,0.12);
+  }
+  .mapbox-token-box button {
+    width: 100%; padding: 11px; border-radius: 8px; border: none;
+    background: #1a9a6c; color: #fff; font-size: 14px; font-weight: 600;
+    cursor: pointer; font-family: inherit; transition: all 0.15s;
+  }
+  .mapbox-token-box button:hover { background: #158a5e; }
+
+  /* Low-poly isometric map — building markers (3 zoom levels) */
+  .mapbox-building-marker {
+    display: flex; flex-direction: row; align-items: flex-end;
+    cursor: pointer; pointer-events: auto;
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.18));
+    transition: transform 0.15s ease;
+    gap: 0;
+  }
+  .mapbox-building-marker.label-left { flex-direction: row-reverse; }
+  .mapbox-building-marker:hover { transform: scale(1.08) translateY(-2px); }
+
+  /* Pin wrapper — teardrop / map-pin shape */
+  .mapbox-building-marker .marker-pin {
+    position: relative; flex-shrink: 0;
+    width: 32px; height: 42px;
+    display: flex; align-items: flex-start; justify-content: center;
+  }
+  .mapbox-building-marker .marker-pin-bg {
+    position: absolute; top: 0; left: 0;
+    width: 32px; height: 42px;
+  }
+  .mapbox-building-marker .marker-icon {
+    position: relative; z-index: 1;
+    width: 24px; height: 24px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 4px;
+    flex-shrink: 0;
+  }
+  .mapbox-building-marker .marker-icon svg { width: 14px; height: 14px; }
+  .mapbox-building-marker .marker-completed {
+    position: absolute; top: -2px; right: -4px; width: 14px; height: 14px;
+    border-radius: 50%; background: #2ee87a; border: 2px solid #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 7px; color: #fff; font-weight: 800;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2); z-index: 2;
+  }
+
+  /* Level 1: Title label (visible at ~50% zoom) — appears to the side */
+  .mapbox-building-marker .marker-title {
+    display: none;
+    padding: 4px 10px; font-size: 14px; font-weight: 700;
+    white-space: nowrap; max-width: 180px; overflow: hidden; text-overflow: ellipsis;
+    letter-spacing: 0.1px; line-height: 1.3;
+    align-self: center;
+    margin-bottom: 18px;
+  }
+  .mapbox-building-marker.zoom-title .marker-title { display: block; }
+
+  /* Level 2: Description card (visible at ~70% zoom) */
+  .mapbox-building-marker .marker-card {
+    display: none;
+    background: #fff; border-radius: 10px; padding: 10px 14px;
+    min-width: 160px; max-width: 210px;
+    box-shadow: 0 3px 14px rgba(0,0,0,0.12);
+    border: 1px solid rgba(0,0,0,0.06);
+    align-self: center;
+    margin-bottom: 18px;
+  }
+  .mapbox-building-marker.zoom-card .marker-card { display: block; }
+  .mapbox-building-marker .marker-card-type {
+    font-size: 9px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.5px; margin-bottom: 2px;
+  }
+  .mapbox-building-marker .marker-card-name {
+    font-size: 11px; font-weight: 600; color: #333;
+    line-height: 1.3; word-break: break-word;
+  }
+  .mapbox-building-marker .marker-card-module {
+    font-size: 9px; color: #888; margin-top: 3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .mapbox-building-marker .marker-card-status {
+    font-size: 9px; font-weight: 700; margin-top: 3px;
+  }
+
+  /* Hide title pill when card is showing (card already has the name) */
+  .mapbox-building-marker.zoom-card .marker-title { display: none; }
+
+  /* Path order badge */
+  .mapbox-path-badge {
+    width: 22px; height: 22px; border-radius: 5px;
+    background: #4A55E0; color: #fff; font-size: 10px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loading">
+  <div class="lds-ring"><div></div><div></div><div></div><div></div></div>
+  <div class="loading-text">Loading...</div>
+</div>
+
+<div id="pixi-container"></div>
+<div id="mapbox-container"></div>
+
+<!-- Mapbox Token Input -->
+<div class="mapbox-token-overlay" id="mapbox-token-overlay" style="display:none;">
+  <div class="mapbox-token-box">
+    <h2>Enter Mapbox Access Token</h2>
+    <p>To use the interactive map view, you need a Mapbox access token. You can get one for free at <a href="https://account.mapbox.com/access-tokens/" target="_blank" style="color:#1a9a6c;">mapbox.com</a></p>
+    <input type="text" id="mapbox-token-input" placeholder="pk.eyJ1Ij...">
+    <button onclick="saveMapboxToken()">Save & Continue</button>
+  </div>
+</div>
+
+
+<!-- Top Bar -->
+<div class="top-bar">
+  <div class="breadcrumb">
+    <div class="bc-home" id="bc-home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span id="bc-course-name">Loading...</span>
+    </div>
+    <span class="sep">/</span>
+    <div class="bc-count" id="resource-count">All resources &#9662;</div>
+  </div>
+  <div class="top-spacer"></div>
+  <div class="search-box">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+    <input type="text" id="search-input" placeholder="Search resources...">
+  </div>
+  <div class="filter-btn" id="btn-filter">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+    Regions <span style="color:#bbb">&#9662;</span>
+  </div>
+
+  <div class="view-mode-toggle" id="viewModeToggle">
+    <button id="vm-radial" class="active" onclick="setViewMode('radial')" title="Radial view">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+      Radial
+    </button>
+    <button id="vm-map" onclick="setViewMode('map')" title="Map view">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+      Map
+    </button>
+  </div>
+
+  <div class="top-actions">
+    <button class="share-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      Share
+    </button>
+    <button class="add-btn" onclick="openAddResourceModal()">+ Add Resource</button>
+  </div>
+</div>
+
+<!-- Info badge -->
+<div style="position:fixed;top:80px;left:16px;z-index:100;">
+  <button id="btn-info" title="Map info" style="width:34px;height:34px;border-radius:50%;border:1px solid #ddd;background:#fff;color:#888;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.08);font-family:serif;">i</button>
+</div>
+
+<!-- Right Controls Panel -->
+<div class="map-controls-panel" id="map-controls-panel">
+  <div id="mc-dimension-btns" style="display:none;">
+    <button class="mc-btn active" id="btn-2d" onclick="setMapDimension('2d')">2D</button>
+    <div class="mc-divider"></div>
+    <button class="mc-btn" id="btn-3d" onclick="setMapDimension('3d')">3D</button>
+    <div class="mc-divider"></div>
+  </div>
+  <button class="mc-btn mc-path-btn" id="btn-show-path" onclick="toggleShowPath()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    Show Path
+  </button>
+</div>
+
+<!-- Bottom Controls -->
+<div class="bottom-controls">
+  <div class="zoom-group">
+    <button class="zoom-btn" id="btn-zin" title="Zoom in">+</button>
+    <button class="zoom-btn" id="btn-zout" title="Zoom out">&minus;</button>
+  </div>
+</div>
+
+<!-- Tooltip -->
+<div class="tooltip" id="tooltip">
+  <div class="tt-title" id="tt-title"></div>
+  <div class="tt-sub" id="tt-sub"></div>
+</div>
+
+<!-- Detail Panel -->
+<div class="detail-panel" id="detail-panel">
+  <button class="dp-close" id="dp-close">&times;</button>
+  <div id="dp-content"></div>
+</div>
+
+<!-- Legend Panel -->
+<div class="legend-panel" id="legend-panel">
+  <h4>Resource Types</h4>
+  <div id="legend-items"></div>
+</div>
+
+<!-- Add Resource Modal -->
+<div class="modal-overlay" id="add-resource-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2>Add Resource</h2>
+      <button class="modal-close" onclick="closeAddResourceModal()">&times;</button>
+    </div>
+    <div class="modal-field">
+      <label>Resource Name</label>
+      <input type="text" id="res-name" placeholder="Enter resource name" maxlength="100">
+    </div>
+    <div class="modal-field">
+      <label>Topic</label>
+      <select id="res-topic"><option value="">Choose Topic</option></select>
+    </div>
+    <div class="modal-field">
+      <label>Resource Type</label>
+      <select id="res-type" onchange="onResourceTypeChange()">
+        <option value="">Choose Type</option>
+        <option value="youtube">YouTube Video</option>
+        <option value="pdf">PDF</option>
+      </select>
+    </div>
+    <div class="modal-field" id="youtube-field" style="display:none;">
+      <label>YouTube URL</label>
+      <input type="url" id="res-youtube-url" placeholder="https://www.youtube.com/watch?v=...">
+    </div>
+    <div class="modal-field" id="pdf-field" style="display:none;">
+      <label>PDF File</label>
+      <div class="file-upload-area" id="pdf-upload-area" onclick="document.getElementById('pdf-file-input').click()">Click to upload PDF file</div>
+      <input type="file" id="pdf-file-input" accept=".pdf" style="display:none;" onchange="onPdfFileSelected()">
+    </div>
+    <button class="modal-submit" id="res-submit-btn" onclick="submitResource()">Submit</button>
+  </div>
+</div>
+
+<!-- Empty State -->
+<div class="empty-map-state" id="empty-map-state" style="display:none;">
+  <div class="empty-icon">&#x1F5FA;&#xFE0F;</div>
+  <div class="empty-title">No resources yet</div>
+  <div class="empty-desc">Add your first resource to start building<br>the learning navigator.</div>
+  <button class="empty-add-btn" onclick="openAddResourceModal()">+ Add Resource</button>
+</div>
+
+<!-- Generate Map Overlay -->
+<div class="generate-map-overlay" id="generate-map-overlay" style="display:none;">
+  <div class="gen-card">
+    <div class="gen-icon">&#x1F5FA;&#xFE0F;</div>
+    <div class="gen-title">Generate Your Map</div>
+    <div class="gen-desc">Transform your resources into an interactive<br>map you can explore in 2D and 3D.</div>
+    <button class="generate-map-btn" id="btn-generate-map" onclick="generateMap()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+      Generate Map
+    </button>
+    <div class="generating-text" id="generating-text">
+      <div class="gen-spinner"></div>
+      Generating map...
+    </div>
+  </div>
+</div>
+
+
+<!-- Toast -->
+<div class="toast-notification" id="toast-notif"></div>
+
+<script>
+// ============================================================
+// TYPES & CONSTANTS
+// ============================================================
+const TYPES = {
+  youtube: { color: 0xA02AF4, css: '#A02AF4', bg: '#F5E9FF', pillBg: '#f5e9ff', ringColor: 0xF5E9FF, label: 'YouTube Video', action: 'Watch Video' },
+  pdf:     { color: 0xE87000, css: '#E87000', bg: '#FFF7D6', pillBg: '#fff7d6', ringColor: 0xFFF7D6, label: 'PDF', action: 'Open PDF' },
+};
+const DIFFICULTY = ['Fundamentals','Intermediate','Advanced','Mastery'];
+const DIFF_COLORS = ['#1a9a6c','#3498db','#e67e22','#e74c3c'];
+const DIFF_HEX = [0x1a9a6c, 0x3498db, 0xe67e22, 0xe74c3c];
+
+// ============================================================
+// LOAD COURSE
+// ============================================================
+const urlParams = new URLSearchParams(window.location.search);
+const courseId = urlParams.get('courseId');
+
+const DEFAULT_MODULES = [
+  'Logic & Proofs','Sets & Relations','Functions','Counting & Combinatorics',
+  'Graph Theory','Trees & Algorithms','Boolean Algebra','Automata Theory',
+];
+let COURSE_NAME = 'Discrete Mathematics';
+let MODULES = [...DEFAULT_MODULES];
+let COURSE_TOPICS = [];
+let loadedCourse = null;
+
+if (courseId) {
+  try {
+    const stored = localStorage.getItem('gooruCourses');
+    if (stored) loadedCourse = JSON.parse(stored).find(c => c.id === courseId);
+  } catch(e) {}
+
+  const DEFAULTS = {
+    'default_1': { name: 'Foundations of AI', modules: ['Intro to AI','Search Algorithms','Knowledge Representation','Machine Learning Basics','Neural Networks','NLP Fundamentals','Computer Vision','AI Ethics'] },
+    'default_2': { name: 'Discrete Mathematics', modules: DEFAULT_MODULES },
+    'default_3': { name: 'Dynamic Programming', modules: ['Intro to DP','Memoization','Tabulation','Knapsack Problems','Longest Subsequences','Matrix Chain','Tree DP','Advanced Optimization'] },
+    'default_4': { name: 'Network Science for Web', modules: ['Network Fundamentals','Graph Models','Centrality Measures','Community Detection','Web Crawling','Link Analysis','Social Networks','Network Visualization'] },
+  };
+
+  if (DEFAULTS[courseId]) {
+    COURSE_NAME = DEFAULTS[courseId].name;
+    MODULES = DEFAULTS[courseId].modules;
+  } else if (loadedCourse) {
+    COURSE_NAME = loadedCourse.name;
+    MODULES = (loadedCourse.modules && loadedCourse.modules.length > 0)
+      ? loadedCourse.modules.map(m => m.name) : ['Module 1','Module 2','Module 3'];
+    if (loadedCourse.topics && loadedCourse.topics.length > 0) COURSE_TOPICS = loadedCourse.topics;
+  }
+}
+
+// ============================================================
+// CANVAS & LAYOUT
+// ============================================================
+const MAP_W = Math.max(2400, MODULES.length * 300);
+const MAP_H = 1800;
+
+// Seeded random
+let seed = 42;
+if (courseId) { seed = 1; for (let i = 0; i < courseId.length; i++) seed = (seed * 31 + courseId.charCodeAt(i)) % 2147483647; if (seed <= 0) seed = 42; }
+function rand() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
+
+// ============================================================
+// RESOURCE MANAGEMENT
+// ============================================================
+function getResourcesKey() { return 'gooruResources_' + (courseId || 'default'); }
+function getMapKey() { return 'gooruMapData_' + (courseId || 'default'); }
+
+function loadResources() {
+  try { const s = localStorage.getItem(getResourcesKey()); return s ? JSON.parse(s) : []; }
+  catch(e) { return []; }
+}
+function saveResources(res) { localStorage.setItem(getResourcesKey(), JSON.stringify(res)); }
+
+function loadMapData() {
+  try { const s = localStorage.getItem(getMapKey()); return s ? JSON.parse(s) : null; }
+  catch(e) { return null; }
+}
+function saveMapData(data) { localStorage.setItem(getMapKey(), JSON.stringify(data)); }
+
+// Place resource in radial coordinate space
+function placeResource(r, index) {
+  let modIdx = 0;
+  if (r.topicName && COURSE_TOPICS.length > 0) {
+    const topic = COURSE_TOPICS.find(t => t.name === r.topicName);
+    if (topic && topic.moduleId) modIdx = Math.max(0, Math.min(parseInt(topic.moduleId) - 1, MODULES.length - 1));
+  } else if (r.topicName && MODULES.length > 0) {
+    const mIdx = MODULES.indexOf(r.topicName);
+    if (mIdx >= 0) modIdx = mIdx;
+  }
+
+  const diffIdx = Math.min(3, index % 4);
+  // Place in radial quadrant (bottom-left origin)
+  const cx = 100, cy = MAP_H - 100;
+  const sliceAngle = (Math.PI / 2) / Math.max(MODULES.length, 1);
+  const angleStart = modIdx * sliceAngle;
+  const angleEnd = (modIdx + 1) * sliceAngle;
+
+  const rMin = (diffIdx + 0.15) * MAP_H * 0.22;
+  const rMax = (diffIdx + 0.85) * MAP_H * 0.22;
+
+  const hv = typeof r.id === 'number' ? r.id : index + 1;
+  const pr1 = Math.abs(((hv * 2654435761) % 1000)) / 1000;
+  const pr2 = Math.abs(((hv * 40503 + 12345) % 1000)) / 1000;
+
+  const angle = angleStart + pr1 * (angleEnd - angleStart);
+  const radius = rMin + pr2 * (rMax - rMin);
+
+  r.x = cx + radius * Math.cos(angle);
+  r.y = cy - radius * Math.sin(angle);
+  r.moduleIndex = modIdx;
+  r.module = MODULES[modIdx] || 'General';
+  r.difficulty = diffIdx;
+  r.diffLabel = DIFFICULTY[diffIdx];
+}
+
+let resources = loadResources();
+resources.forEach((r, i) => placeResource(r, i));
+let currentRes = resources.find(r => r.isCurrent) || null;
+
+// ============================================================
+// PIXI SETUP
+// ============================================================
+let W = window.innerWidth, H = window.innerHeight;
+const app = new PIXI.Application({
+  width: W, height: H, backgroundColor: 0xf8fafc,
+  antialias: true, resolution: window.devicePixelRatio || 1, autoDensity: true,
+});
+document.getElementById('pixi-container').appendChild(app.view);
+
+const viewport = new PIXI.Container();
+app.stage.addChild(viewport);
+
+let cam = { x: MAP_W / 2, y: MAP_H / 2, zoom: 0.65 };
+let selected = null, searchHighlight = null;
+let currentViewMode = 'radial';
+let mapGenerated = !!loadMapData();
+
+function updateViewport() {
+  viewport.scale.set(cam.zoom);
+  viewport.position.set(W / 2 - cam.x * cam.zoom, H / 2 - cam.y * cam.zoom);
+}
+
+// ============================================================
+// SCENE LAYERS
+// ============================================================
+const radialContainer = new PIXI.Container();  // Radial grid
+const markersContainer = new PIXI.Container(); // Resource markers
+const pulseLayer = new PIXI.Graphics();
+
+viewport.addChild(radialContainer, markersContainer, pulseLayer);
+
+// ============================================================
+// RADIAL VIEW DRAWING
+// ============================================================
+function drawRadialGrid() {
+  radialContainer.removeChildren();
+  const g = new PIXI.Graphics();
+  radialContainer.addChild(g);
+
+  const cx = 100, cy = MAP_H - 100;
+  const AXIS_COLOR = 0x3C3C3C;
+  const DOTTED_COLOR = 0xC7C7C7;
+  const ARC_COLOR = 0xF4F5F8;
+
+  // Arcs
+  for (let i = 1; i <= 4; i++) {
+    const r = i * MAP_H * 0.22;
+    g.lineStyle(12, ARC_COLOR, 1);
+    g.arc(cx, cy, r, -Math.PI / 2, 0);
+    g.moveTo(cx, cy);
+    const lr = (i - 0.5) * MAP_H * 0.22;
+    const la = Math.PI / 20;
+    const t = new PIXI.Text(DIFFICULTY[i - 1], { fontFamily: '-apple-system, sans-serif', fontSize: 10, fontWeight: '600', fill: DIFF_HEX[i - 1] });
+    t.alpha = 0.55;
+    t.position.set(cx + lr * Math.cos(-Math.PI / 2 + la), cy + lr * Math.sin(-Math.PI / 2 + la));
+    t.anchor.set(0, 0.5);
+    radialContainer.addChild(t);
+  }
+
+  // Radial lines
+  const slices = MODULES.length;
+  const DASH_LEN = 10, GAP_LEN = 8;
+  for (let i = 0; i <= slices; i++) {
+    const angle = i * (Math.PI / 2) / slices;
+    const endR = MAP_H * 0.9;
+    const cosA = Math.cos(angle), sinA = Math.sin(angle);
+    if (i > 0 && i < slices) {
+      let d = 0;
+      g.lineStyle(2, DOTTED_COLOR, 1);
+      while (d < endR) {
+        const segEnd = Math.min(d + DASH_LEN, endR);
+        g.moveTo(cx + d * cosA, cy - d * sinA);
+        g.lineTo(cx + segEnd * cosA, cy - segEnd * sinA);
+        d = segEnd + GAP_LEN;
+      }
+    }
+    if (i < slices) {
+      const mid = (i + 0.5) * (Math.PI / 2) / slices;
+      const labelD = MAP_H * 0.85;
+      const name = MODULES[i].length > 18 ? MODULES[i].substring(0, 16) + '\u2026' : MODULES[i];
+      const t = new PIXI.Text(name, { fontFamily: '-apple-system, sans-serif', fontSize: 10, fontWeight: '600', fill: 0x504b41 });
+      t.alpha = 0.55;
+      t.anchor.set(0.5, 0.5);
+      t.position.set(cx + labelD * Math.cos(mid), cy - labelD * Math.sin(mid));
+      t.rotation = -mid;
+      radialContainer.addChild(t);
+    }
+  }
+
+  // Axes
+  g.lineStyle(2.5, AXIS_COLOR, 1);
+  g.moveTo(cx, cy); g.lineTo(cx, cy - MAP_H * 0.92);
+  g.moveTo(cx, cy); g.lineTo(cx + MAP_W * 0.92, cy);
+  g.lineStyle(0);
+}
+
+// ============================================================
+// MAPBOX GL JS MAP VIEW
+// ============================================================
+// Center point for mapping pixel coords to lat/lng (Paris-like city)
+const MAP_CENTER_LNG = 2.3522;
+const MAP_CENTER_LAT = 48.8566;
+const MAP_ZOOM_DEFAULT = 14;
+// Scale factor: how many degrees per pixel
+const PIXEL_TO_LNG = 0.00004;
+const PIXEL_TO_LAT = 0.00003;
+
+let mapboxMap = null;
+let mapboxMarkers = [];
+let mapboxInitialized = false;
+let currentMapDimension = '2d';
+
+function getMapboxToken() {
+  return localStorage.getItem('mapboxAccessToken') || '';
+}
+function setMapboxToken(token) {
+  localStorage.setItem('mapboxAccessToken', token);
+}
+
+function saveMapboxToken() {
+  const token = document.getElementById('mapbox-token-input').value.trim();
+  if (!token || !token.startsWith('pk.')) {
+    showToast('Please enter a valid Mapbox token (starts with pk.)', 'error');
+    return;
+  }
+  setMapboxToken(token);
+  document.getElementById('mapbox-token-overlay').style.display = 'none';
+
+  const onReady = () => {
+    if (mapGenerated) {
+      setViewMode('map');
+    } else {
+      completeMapViewSwitch();
+    }
+  };
+
+  initMapbox(token, onReady);
+}
+
+// Convert pixel coordinates to lat/lng
+function pixelToLngLat(px, py) {
+  // Origin is bottom-left of radial (100, MAP_H-100)
+  // Center of pixel space
+  const centerPx = MAP_W / 2;
+  const centerPy = MAP_H / 2;
+  const lng = MAP_CENTER_LNG + (px - centerPx) * PIXEL_TO_LNG;
+  const lat = MAP_CENTER_LAT - (py - centerPy) * PIXEL_TO_LAT;
+  return [lng, lat];
+}
+
+let mapboxReadyCallbacks = [];
+
+// ---- LOW-POLY ISOMETRIC PROCEDURAL WORLD ----
+// Seeded random for map decorations (separate from radial seed)
+let mapSeed = 12345;
+if (courseId) { mapSeed = 7; for (let i = 0; i < courseId.length; i++) mapSeed = (mapSeed * 37 + courseId.charCodeAt(i)) % 2147483647; }
+function mapRand() { mapSeed = (mapSeed * 16807) % 2147483647; return (mapSeed - 1) / 2147483646; }
+function resetMapSeed(base) {
+  mapSeed = base || 12345;
+  if (courseId) { mapSeed = base || 7; for (let i = 0; i < courseId.length; i++) mapSeed = (mapSeed * 37 + courseId.charCodeAt(i)) % 2147483647; }
+}
+
+// Building roof (top) color per resource type
+const BUILDING_PALETTES = {
+  youtube: ['#DD9BFF'],
+  pdf:     ['#FFBB8B'],
+};
+// Accent colors for building details (annexes)
+const ACCENT_PALETTES = {
+  youtube: ['#E8E0D3', '#DDD5C8', '#D8D0C3'],
+  pdf:     ['#E8E0D3', '#DDD5C8', '#D8D0C3'],
+};
+
+// Round the corners of a polygon ring (expects closed ring with first==last).
+// Replaces each vertex with a small quadratic-bezier arc between the two
+// adjacent edges. `radius` is in ring-coordinate units (degrees here).
+function roundPolygonCorners(ring, radius, steps = 5) {
+  const pts = ring.slice(0, -1); // drop closing duplicate
+  const n = pts.length;
+  if (n < 3) return ring;
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const prev = pts[(i - 1 + n) % n];
+    const curr = pts[i];
+    const next = pts[(i + 1) % n];
+    const dx1 = curr[0] - prev[0], dy1 = curr[1] - prev[1];
+    const dx2 = next[0] - curr[0], dy2 = next[1] - curr[1];
+    const len1 = Math.hypot(dx1, dy1) || 1;
+    const len2 = Math.hypot(dx2, dy2) || 1;
+    // Clamp radius to at most ~45% of the shorter adjacent edge
+    const r = Math.min(radius, len1 * 0.45, len2 * 0.45);
+    const a = [curr[0] - (dx1 / len1) * r, curr[1] - (dy1 / len1) * r];
+    const b = [curr[0] + (dx2 / len2) * r, curr[1] + (dy2 / len2) * r];
+    for (let s = 0; s <= steps; s++) {
+      const t = s / steps;
+      const mt = 1 - t;
+      const x = mt * mt * a[0] + 2 * mt * t * curr[0] + t * t * b[0];
+      const y = mt * mt * a[1] + 2 * mt * t * curr[1] + t * t * b[1];
+      out.push([x, y]);
+    }
+  }
+  out.push(out[0]); // close ring
+  return out;
+}
+
+// Generate varied low-poly building footprints (rect, L-shape, T-shape, etc.)
+function generateBuildingFootprint(lng, lat, resourceType, idx) {
+  const shape = idx % 5; // 5 different shapes
+  const scale = 0.00040 + ((idx * 7) % 4) * 0.00008;
+  const w = scale * (1.0 + (idx % 3) * 0.35);
+  const h = scale * (0.8 + ((idx * 3) % 4) * 0.3);
+
+  let ring;
+  switch (shape) {
+    case 0: // Simple rectangle
+      ring = [[lng-w,lat-h],[lng+w,lat-h],[lng+w,lat+h],[lng-w,lat+h],[lng-w,lat-h]];
+      break;
+    case 1: // L-shape
+      ring = [
+        [lng-w, lat-h], [lng+w, lat-h], [lng+w, lat],
+        [lng, lat], [lng, lat+h], [lng-w, lat+h], [lng-w, lat-h],
+      ];
+      break;
+    case 2: // Wide rectangle
+      ring = [[lng-w*1.4,lat-h*0.6],[lng+w*1.4,lat-h*0.6],[lng+w*1.4,lat+h*0.6],[lng-w*1.4,lat+h*0.6],[lng-w*1.4,lat-h*0.6]];
+      break;
+    case 3: // T-shape
+      ring = [
+        [lng-w*1.2, lat-h], [lng+w*1.2, lat-h], [lng+w*1.2, lat-h*0.3],
+        [lng+w*0.4, lat-h*0.3], [lng+w*0.4, lat+h], [lng-w*0.4, lat+h],
+        [lng-w*0.4, lat-h*0.3], [lng-w*1.2, lat-h*0.3], [lng-w*1.2, lat-h],
+      ];
+      break;
+    case 4: // Tall narrow
+      ring = [[lng-w*0.5,lat-h*1.3],[lng+w*0.5,lat-h*1.3],[lng+w*0.5,lat+h*1.3],[lng-w*0.5,lat+h*1.3],[lng-w*0.5,lat-h*1.3]];
+      break;
+    default:
+      ring = [[lng-w,lat-h],[lng+w,lat-h],[lng+w,lat+h],[lng-w,lat+h],[lng-w,lat-h]];
+  }
+  // Rounded corners: radius ~22% of base scale
+  return roundPolygonCorners(ring, scale * 0.22);
+}
+
+// Generate "annex" buildings next to main buildings for a town feel
+function generateAnnexBuildings(mainBuildings) {
+  const annexes = [];
+  resetMapSeed(55555);
+  mainBuildings.forEach((mb, i) => {
+    if (mapRand() > 0.5) return; // ~50% of buildings get an annex
+    const [lng, lat] = mb.center;
+    const offsetLng = (mapRand() > 0.5 ? 1 : -1) * (0.00025 + mapRand() * 0.0001);
+    const offsetLat = (mapRand() > 0.5 ? 1 : -1) * (0.0002 + mapRand() * 0.0001);
+    const aLng = lng + offsetLng, aLat = lat + offsetLat;
+    const s = 0.00016 + mapRand() * 0.0001;
+    const rect = [[aLng-s,aLat-s],[aLng+s,aLat-s],[aLng+s,aLat+s],[aLng-s,aLat+s],[aLng-s,aLat-s]];
+    annexes.push({
+      type: 'Feature',
+      properties: {
+        color: ACCENT_PALETTES[mb.rType][i % 3],
+        height: 12 + mapRand() * 18,
+      },
+      geometry: {
+        type: 'Polygon',
+        coordinates: [roundPolygonCorners(rect, s * 0.35)],
+      },
+    });
+  });
+  return annexes;
+}
+
+// Generate tree positions with clusters (low-poly forest patches)
+function generateTreePositions(buildingCenters, count) {
+  const trees = [];
+  resetMapSeed(12345);
+
+  if (buildingCenters.length === 0) {
+    // Empty state: lush forest island
+    for (let i = 0; i < 120; i++) {
+      const clusterX = MAP_CENTER_LNG + (mapRand() - 0.5) * 0.01;
+      const clusterY = MAP_CENTER_LAT + (mapRand() - 0.5) * 0.008;
+      trees.push({
+        pos: [clusterX, clusterY],
+        size: 0.5 + mapRand() * 0.8,
+        shade: Math.floor(mapRand() * 4), // 4 different green shades
+      });
+    }
+    return trees;
+  }
+
+  // Compute bounds
+  let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+  buildingCenters.forEach(([lng, lat]) => {
+    minLng = Math.min(minLng, lng); maxLng = Math.max(maxLng, lng);
+    minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
+  });
+  const padLng = (maxLng - minLng) * 0.7 + 0.003;
+  const padLat = (maxLat - minLat) * 0.7 + 0.003;
+  minLng -= padLng; maxLng += padLng;
+  minLat -= padLat; maxLat += padLat;
+
+  // Place in clusters for a natural feel
+  const clusterCount = Math.max(8, Math.floor(count / 5));
+  for (let c = 0; c < clusterCount; c++) {
+    const cx = minLng + mapRand() * (maxLng - minLng);
+    const cy = minLat + mapRand() * (maxLat - minLat);
+    const clusterSize = 3 + Math.floor(mapRand() * 5);
+
+    for (let t = 0; t < clusterSize && trees.length < count; t++) {
+      const tx = cx + (mapRand() - 0.5) * 0.0008;
+      const ty = cy + (mapRand() - 0.5) * 0.0006;
+      // Check not too close to buildings (bigger buildings need more clearance)
+      let tooClose = false;
+      for (const [bLng, bLat] of buildingCenters) {
+        if (Math.abs(tx - bLng) < 0.0005 && Math.abs(ty - bLat) < 0.0005) { tooClose = true; break; }
+      }
+      if (!tooClose) {
+        trees.push({ pos: [tx, ty], size: 0.4 + mapRand() * 0.9, shade: Math.floor(mapRand() * 4) });
+      }
+    }
+  }
+  return trees;
+}
+
+// Generate grass patch polygons for ground texture
+function generateGrassPatches(buildingCenters) {
+  const patches = [];
+  resetMapSeed(77777);
+
+  let cLng = MAP_CENTER_LNG, cLat = MAP_CENTER_LAT;
+  if (buildingCenters.length > 0) {
+    cLng = buildingCenters.reduce((s, c) => s + c[0], 0) / buildingCenters.length;
+    cLat = buildingCenters.reduce((s, c) => s + c[1], 0) / buildingCenters.length;
+  }
+
+  const patchCount = 15 + Math.floor(mapRand() * 10);
+  for (let p = 0; p < patchCount; p++) {
+    const px = cLng + (mapRand() - 0.5) * 0.012;
+    const py = cLat + (mapRand() - 0.5) * 0.009;
+    const points = [];
+    const segs = 5 + Math.floor(mapRand() * 3); // Low-poly = fewer segments
+    const baseR = 0.0004 + mapRand() * 0.0006;
+    for (let i = 0; i <= segs; i++) {
+      const a = (i / segs) * Math.PI * 2;
+      const r = baseR * (0.6 + mapRand() * 0.8);
+      points.push([px + r * Math.cos(a) * 1.2, py + r * Math.sin(a)]);
+    }
+    patches.push({ coords: points, shade: Math.floor(mapRand() * 3) });
+  }
+  return patches;
+}
+
+// Generate water body polygons (low-poly angular shapes)
+function generateWaterBodies(buildingCenters) {
+  const waters = [];
+  resetMapSeed(99999);
+
+  let cLng = MAP_CENTER_LNG, cLat = MAP_CENTER_LAT;
+  if (buildingCenters.length > 0) {
+    cLng = buildingCenters.reduce((s, c) => s + c[0], 0) / buildingCenters.length;
+    cLat = buildingCenters.reduce((s, c) => s + c[1], 0) / buildingCenters.length;
+  }
+
+  const waterCount = 2 + Math.floor(mapRand() * 2);
+  for (let w = 0; w < waterCount; w++) {
+    const offsetLng = (mapRand() - 0.5) * 0.008 + (w === 0 ? -0.004 : 0.003);
+    const offsetLat = (mapRand() - 0.5) * 0.006 + (w === 0 ? 0.003 : -0.003);
+    const wLng = cLng + offsetLng, wLat = cLat + offsetLat;
+
+    let overlaps = false;
+    for (const [bLng, bLat] of buildingCenters) {
+      if (Math.abs(wLng - bLng) < 0.0006 && Math.abs(wLat - bLat) < 0.0006) { overlaps = true; break; }
+    }
+    if (overlaps) continue;
+
+    // Low-poly: 5-8 segments for angular look
+    const points = [];
+    const segments = 5 + Math.floor(mapRand() * 4);
+    const baseR = 0.0008 + mapRand() * 0.0008;
+    for (let i = 0; i <= segments; i++) {
+      const angle = (i / segments) * Math.PI * 2;
+      const r = baseR * (0.5 + mapRand() * 0.7);
+      points.push([wLng + r * Math.cos(angle) * 1.4, wLat + r * Math.sin(angle)]);
+    }
+    waters.push(points);
+  }
+  return waters;
+}
+
+// Generate small stone/rock decoration points
+function generateRocks(buildingCenters) {
+  const rocks = [];
+  resetMapSeed(33333);
+
+  let minLng, maxLng, minLat, maxLat;
+  if (buildingCenters.length === 0) {
+    minLng = MAP_CENTER_LNG - 0.006; maxLng = MAP_CENTER_LNG + 0.006;
+    minLat = MAP_CENTER_LAT - 0.005; maxLat = MAP_CENTER_LAT + 0.005;
+  } else {
+    minLng = Infinity; maxLng = -Infinity; minLat = Infinity; maxLat = -Infinity;
+    buildingCenters.forEach(([lng, lat]) => {
+      minLng = Math.min(minLng, lng); maxLng = Math.max(maxLng, lng);
+      minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
+    });
+    const pad = 0.003;
+    minLng -= pad; maxLng += pad; minLat -= pad; maxLat += pad;
+  }
+
+  for (let i = 0; i < 25; i++) {
+    rocks.push([
+      minLng + mapRand() * (maxLng - minLng),
+      minLat + mapRand() * (maxLat - minLat),
+    ]);
+  }
+  return rocks;
+}
+
+// Build the custom blank style JSON — low-poly green base
+function buildProceduralStyle() {
+  return {
+    version: 8,
+    name: 'Low Poly Learning World',
+    sources: {},
+    layers: [
+      {
+        id: 'background',
+        type: 'background',
+        paint: { 'background-color': '#F6F4F4' },
+      },
+    ],
+    glyphs: 'https://api.mapbox.com/fonts/v1/mapbox/{fontstack}/{range}.pbf?access_token=' + getMapboxToken(),
+  };
+}
+
+// Add all procedural world layers to the map
+function addProceduralWorld() {
+  if (!mapboxMap) return;
+
+  const buildingCenters = resources.map(r => pixelToLngLat(r.x, r.y));
+
+  // ---- Grass patches (ground texture) ----
+  const grassPatches = generateGrassPatches(buildingCenters);
+  const GRASS_SHADES = ['#9dd493', '#7bc074', '#a8dda0'];
+  mapboxMap.addSource('grass-patches', {
+    type: 'geojson',
+    data: {
+      type: 'FeatureCollection',
+      features: grassPatches.map((p, i) => ({
+        type: 'Feature',
+        properties: { color: GRASS_SHADES[p.shade] },
+        geometry: { type: 'Polygon', coordinates: [p.coords] },
+      })),
+    },
+  });
+  mapboxMap.addLayer({
+    id: 'grass-fill',
+    type: 'fill',
+    source: 'grass-patches',
+    paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.6 },
+  });
+
+  // ---- Water bodies ----
+  const waterPolygons = generateWaterBodies(buildingCenters);
+  if (waterPolygons.length > 0) {
+    mapboxMap.addSource('water-bodies', {
+      type: 'geojson',
+      data: {
+        type: 'FeatureCollection',
+        features: waterPolygons.map((coords, i) => ({
+          type: 'Feature',
+          properties: { shade: i % 2 },
+          geometry: { type: 'Polygon', coordinates: [coords] },
+        })),
+      },
+    });
+    // Water inner fill (lighter blue)
+    mapboxMap.addLayer({
+      id: 'water-fill',
+      type: 'fill',
+      source: 'water-bodies',
+      paint: { 'fill-color': '#62c8e0', 'fill-opacity': 0.7 },
+    });
+    // Water shore highlight
+    mapboxMap.addLayer({
+      id: 'water-shore',
+      type: 'line',
+      source: 'water-bodies',
+      paint: { 'line-color': '#9ee0ef', 'line-width': 3, 'line-opacity': 0.5 },
+    });
+    // Water edge
+    mapboxMap.addLayer({
+      id: 'water-outline',
+      type: 'line',
+      source: 'water-bodies',
+      paint: { 'line-color': '#3da8c0', 'line-width': 1.5, 'line-opacity': 0.7 },
+    });
+  }
+
+  // ---- Rocks ----
+  const rockPositions = generateRocks(buildingCenters);
+  mapboxMap.addSource('rocks', {
+    type: 'geojson',
+    data: {
+      type: 'FeatureCollection',
+      features: rockPositions.map((pos, i) => ({
+        type: 'Feature',
+        properties: { size: i % 3 },
+        geometry: { type: 'Point', coordinates: pos },
+      })),
+    },
+  });
+  mapboxMap.addLayer({
+    id: 'rocks-layer',
+    type: 'circle',
+    source: 'rocks',
+    paint: {
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 1.5, 16, 4, 18, 7],
+      'circle-color': ['match', ['get', 'size'], 0, '#b0a890', 1, '#c4bca0', '#a09880'],
+      'circle-opacity': 0.6,
+    },
+  });
+
+  // ---- Trees (layered low-poly style) ----
+  const treeCount = resources.length === 0 ? 120 : Math.max(40, resources.length * 10);
+  const treeData = generateTreePositions(buildingCenters, treeCount);
+  const TREE_SHADES = ['#2d9e47', '#3ab55a', '#48c96b', '#25873c'];
+
+  if (treeData.length > 0) {
+    mapboxMap.addSource('trees', {
+      type: 'geojson',
+      data: {
+        type: 'FeatureCollection',
+        features: treeData.map((t, i) => ({
+          type: 'Feature',
+          properties: { size: t.size, shade: t.shade, color: TREE_SHADES[t.shade] },
+          geometry: { type: 'Point', coordinates: t.pos },
+        })),
+      },
+    });
+    // Tree shadow (offset)
+    mapboxMap.addLayer({
+      id: 'tree-shadow',
+      type: 'circle',
+      source: 'trees',
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'],
+          13, ['*', ['get', 'size'], 3],
+          16, ['*', ['get', 'size'], 9],
+          18, ['*', ['get', 'size'], 16],
+        ],
+        'circle-color': '#1a6630',
+        'circle-opacity': 0.15,
+        'circle-translate': [2, 2],
+      },
+    });
+    // Outer canopy (darker ring)
+    mapboxMap.addLayer({
+      id: 'tree-outer',
+      type: 'circle',
+      source: 'trees',
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'],
+          13, ['*', ['get', 'size'], 3],
+          16, ['*', ['get', 'size'], 9],
+          18, ['*', ['get', 'size'], 15],
+        ],
+        'circle-color': ['get', 'color'],
+        'circle-opacity': 0.85,
+      },
+    });
+    // Inner highlight (lighter dot = low-poly depth)
+    mapboxMap.addLayer({
+      id: 'tree-highlight',
+      type: 'circle',
+      source: 'trees',
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'],
+          13, ['*', ['get', 'size'], 1.5],
+          16, ['*', ['get', 'size'], 4.5],
+          18, ['*', ['get', 'size'], 8],
+        ],
+        'circle-color': '#72e890',
+        'circle-opacity': 0.4,
+        'circle-translate': [-1, -1],
+      },
+    });
+  }
+
+  // ---- Buildings (resources) ----
+  if (resources.length > 0) {
+    const mainBuildingMeta = []; // track for annex generation
+
+    const buildingFeatures = resources.map((r, i) => {
+      const [lng, lat] = pixelToLngLat(r.x, r.y);
+      const footprint = generateBuildingFootprint(lng, lat, r.type, i);
+      const palette = BUILDING_PALETTES[r.type] || BUILDING_PALETTES.youtube;
+      const color = palette[i % palette.length];
+
+      // Height varies: taller buildings for higher difficulty, YouTube slightly taller
+      const baseHeight = 40 + (r.difficulty || 0) * 22;
+      const height = r.type === 'youtube' ? baseHeight + 15 : baseHeight + 8;
+
+      mainBuildingMeta.push({ center: [lng, lat], rType: r.type });
+
+      return {
+        type: 'Feature',
+        properties: {
+          id: r.id, name: r.name, type: r.type,
+          color: color, height: height,
+          completed: r.completed ? 1 : 0,
+        },
+        geometry: { type: 'Polygon', coordinates: [footprint] },
+      };
+    });
+
+    // Annex buildings (small companion structures)
+    const annexFeatures = generateAnnexBuildings(mainBuildingMeta);
+
+    // Annex source + layer (behind main buildings)
+    if (annexFeatures.length > 0) {
+      mapboxMap.addSource('annexes', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: annexFeatures },
+      });
+      mapboxMap.addLayer({
+        id: 'annexes-3d',
+        type: 'fill-extrusion',
+        source: 'annexes',
+        paint: {
+          'fill-extrusion-color': '#E0DAD0',
+          'fill-extrusion-height': ['max', ['-', ['get', 'height'], 1], 0.1],
+          'fill-extrusion-base': 0,
+          'fill-extrusion-opacity': 0.9,
+          'fill-extrusion-vertical-gradient': false,
+        },
+      });
+      mapboxMap.addLayer({
+        id: 'annexes-roof',
+        type: 'fill-extrusion',
+        source: 'annexes',
+        paint: {
+          'fill-extrusion-color': ['get', 'color'],
+          'fill-extrusion-height': ['get', 'height'],
+          'fill-extrusion-base': ['max', ['-', ['get', 'height'], 1], 0.1],
+          'fill-extrusion-opacity': 0.9,
+        },
+      });
+    }
+
+    // Main buildings
+    mapboxMap.addSource('buildings', {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: buildingFeatures },
+    });
+
+    // Building ground shadow
+    mapboxMap.addLayer({
+      id: 'building-shadow',
+      type: 'fill',
+      source: 'buildings',
+      paint: { 'fill-color': '#8a8070', 'fill-opacity': 0.18, 'fill-translate': [4, 4] },
+    });
+
+    // 3D building walls (sides)
+    mapboxMap.addLayer({
+      id: 'buildings-3d',
+      type: 'fill-extrusion',
+      source: 'buildings',
+      paint: {
+        'fill-extrusion-color': '#E0DAD0',
+        'fill-extrusion-height': ['max', ['-', ['get', 'height'], 1], 0.1],
+        'fill-extrusion-base': 0,
+        'fill-extrusion-opacity': 1.0,
+        'fill-extrusion-vertical-gradient': false,
+      },
+    });
+
+    // Building roof cap (top)
+    mapboxMap.addLayer({
+      id: 'buildings-roof',
+      type: 'fill-extrusion',
+      source: 'buildings',
+      paint: {
+        'fill-extrusion-color': ['get', 'color'],
+        'fill-extrusion-height': ['get', 'height'],
+        'fill-extrusion-base': ['max', ['-', ['get', 'height'], 1], 0.1],
+        'fill-extrusion-opacity': 1.0,
+      },
+    });
+
+  }
+}
+
+// Remove all procedural layers/sources
+function removeProceduralWorld() {
+  if (!mapboxMap) return;
+  const layerIds = [
+    'buildings-roof', 'buildings-3d', 'building-shadow', 'annexes-roof', 'annexes-3d',
+    'tree-highlight', 'tree-outer', 'tree-shadow',
+    'rocks-layer',
+    'water-outline', 'water-shore', 'water-fill',
+    'grass-fill',
+  ];
+  const sourceIds = ['buildings', 'annexes', 'trees', 'rocks', 'water-bodies', 'grass-patches'];
+  layerIds.forEach(id => { if (mapboxMap.getLayer(id)) mapboxMap.removeLayer(id); });
+  sourceIds.forEach(id => { if (mapboxMap.getSource(id)) mapboxMap.removeSource(id); });
+}
+
+function initMapbox(token, onReady) {
+  if (onReady) mapboxReadyCallbacks.push(onReady);
+
+  if (mapboxInitialized) {
+    mapboxReadyCallbacks.forEach(cb => cb());
+    mapboxReadyCallbacks = [];
+    return;
+  }
+
+  if (mapboxMap) {
+    return;
+  }
+
+  mapboxgl.accessToken = token;
+
+  mapboxMap = new mapboxgl.Map({
+    container: 'mapbox-container',
+    style: buildProceduralStyle(),
+    center: [MAP_CENTER_LNG, MAP_CENTER_LAT],
+    zoom: MAP_ZOOM_DEFAULT,
+    pitch: 50,    // Default isometric-ish tilt
+    bearing: -20,  // Slight rotation for isometric feel
+    antialias: true,
+  });
+
+  mapboxMap.on('style.load', () => {
+    mapboxInitialized = true;
+
+    // Build the procedural world
+    addProceduralWorld();
+    addMapboxMarkers();
+
+    // Listen for zoom changes to toggle marker detail levels
+    mapboxMap.on('zoom', updateMapMarkerZoomLevels);
+
+    // Make buildings clickable
+    if (mapboxMap.getLayer('buildings-3d')) {
+      mapboxMap.on('click', 'buildings-3d', (e) => {
+        if (e.features && e.features.length > 0) {
+          const clickedId = e.features[0].properties.id;
+          const r = resources.find(res => res.id === clickedId);
+          if (r) openDetail(r);
+        }
+      });
+      mapboxMap.on('mouseenter', 'buildings-3d', () => {
+        mapboxMap.getCanvas().style.cursor = 'pointer';
+      });
+      mapboxMap.on('mouseleave', 'buildings-3d', () => {
+        mapboxMap.getCanvas().style.cursor = '';
+      });
+    }
+
+    mapboxReadyCallbacks.forEach(cb => cb());
+    mapboxReadyCallbacks = [];
+  });
+
+  mapboxMap.keyboard.disable();
+  mapboxMap.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'bottom-right');
+}
+
+// Zoom thresholds for marker detail levels
+// Based on Mapbox zoom range ~12-18 for this map:
+//   < 15.0  → icon only (zoomed out)
+//   15.0-16.0 → icon + title pill (~50% zoom)
+//   > 16.0  → icon + full card (~70% zoom)
+const MARKER_ZOOM_TITLE = 15.0;
+const MARKER_ZOOM_CARD  = 16.0;
+
+function addMapboxMarkers() {
+  // Remove existing markers
+  mapboxMarkers.forEach(m => m.remove());
+  mapboxMarkers = [];
+
+  resources.forEach(r => {
+    const t = TYPES[r.type] || TYPES.youtube;
+    const [lng, lat] = pixelToLngLat(r.x, r.y);
+
+    // Root element
+    const el = document.createElement('div');
+    el.className = 'mapbox-building-marker';
+    // Alternate label placement left/right to reduce overlap
+    const rIdx = resources.indexOf(r);
+    if (rIdx % 2 === 0) el.classList.add('label-left');
+
+    // --- Pin wrapper (teardrop shape) ---
+    const pinWrapper = document.createElement('div');
+    pinWrapper.className = 'marker-pin';
+
+    // SVG teardrop pin background
+    const pinBg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    pinBg.setAttribute('viewBox', '0 0 36 46');
+    pinBg.setAttribute('class', 'marker-pin-bg');
+    pinBg.innerHTML = '<path d="M18 46C18 46 3 28 3 17C3 8.716 9.716 2 18 2C26.284 2 33 8.716 33 17C33 28 18 46 18 46Z" fill="white" stroke="' + t.css + '" stroke-width="0" />';
+
+    // Icon circle inside pin
+    const iconDiv = document.createElement('div');
+    iconDiv.className = 'marker-icon';
+    iconDiv.style.background = t.css;
+
+    if (r.type === 'youtube') {
+      iconDiv.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><polygon points="10 8 16 12 10 16 10 8"/></svg>';
+    } else {
+      iconDiv.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+    }
+
+    if (r.completed) {
+      const badge = document.createElement('div');
+      badge.className = 'marker-completed';
+      badge.textContent = '\u2713';
+      iconDiv.appendChild(badge);
+    }
+
+    pinWrapper.appendChild(pinBg);
+    pinWrapper.appendChild(iconDiv);
+
+    // --- Level 1: Title label (visible at 50% zoom) — side label ---
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'marker-title';
+    titleDiv.style.color = t.css;
+    const shortName = r.name.length > 22 ? r.name.substring(0, 20) + '\u2026' : r.name;
+    titleDiv.textContent = shortName;
+
+    // --- Level 2: Description card (visible at 70% zoom) ---
+    const cardDiv = document.createElement('div');
+    cardDiv.className = 'marker-card';
+
+    const cardType = document.createElement('div');
+    cardType.className = 'marker-card-type';
+    cardType.style.color = t.css;
+    cardType.textContent = t.label;
+
+    const cardName = document.createElement('div');
+    cardName.className = 'marker-card-name';
+    cardName.textContent = r.name.length > 35 ? r.name.substring(0, 33) + '\u2026' : r.name;
+
+    const cardModule = document.createElement('div');
+    cardModule.className = 'marker-card-module';
+    cardModule.textContent = r.module || r.topicName || 'General';
+
+    const cardStatus = document.createElement('div');
+    cardStatus.className = 'marker-card-status';
+    cardStatus.style.color = r.completed ? '#1a9a6c' : '#e67e22';
+    cardStatus.textContent = r.completed ? '\u2713 Completed' : 'Not started';
+
+    cardDiv.appendChild(cardType);
+    cardDiv.appendChild(cardName);
+    cardDiv.appendChild(cardModule);
+    cardDiv.appendChild(cardStatus);
+
+    // Assemble: pin in center, text to the side
+    el.appendChild(titleDiv);
+    el.appendChild(pinWrapper);
+    el.appendChild(cardDiv);
+
+    el.addEventListener('click', () => openDetail(r));
+
+    const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+      .setLngLat([lng, lat])
+      .setOffset([0, -10])
+      .addTo(mapboxMap);
+
+    mapboxMarkers.push(marker);
+  });
+
+  // Apply initial zoom level classes
+  updateMapMarkerZoomLevels();
+
+  // Fit map to show all resources
+  if (resources.length > 0) {
+    const bounds = new mapboxgl.LngLatBounds();
+    resources.forEach(r => {
+      const [lng, lat] = pixelToLngLat(r.x, r.y);
+      bounds.extend([lng, lat]);
+    });
+    mapboxMap.fitBounds(bounds, { padding: 120, maxZoom: 17, duration: 0 });
+  }
+}
+
+// Update marker detail level based on current zoom
+function updateMapMarkerZoomLevels() {
+  if (!mapboxMap) return;
+  const zoom = mapboxMap.getZoom();
+  const markerEls = document.querySelectorAll('.mapbox-building-marker');
+  markerEls.forEach(el => {
+    el.classList.remove('zoom-title', 'zoom-card');
+    if (zoom >= MARKER_ZOOM_CARD) {
+      el.classList.add('zoom-card');
+    } else if (zoom >= MARKER_ZOOM_TITLE) {
+      el.classList.add('zoom-title');
+    }
+  });
+}
+
+// Rebuild the procedural world (call when resources change)
+function refreshProceduralWorld() {
+  if (!mapboxMap || !mapboxInitialized) return;
+  removeProceduralWorld();
+  addProceduralWorld();
+  addMapboxMarkers();
+}
+
+function setMapDimension(dim) {
+  currentMapDimension = dim;
+  document.getElementById('btn-2d').classList.toggle('active', dim === '2d');
+  document.getElementById('btn-3d').classList.toggle('active', dim === '3d');
+
+  if (!mapboxMap) return;
+
+  if (dim === '3d') {
+    mapboxMap.easeTo({
+      pitch: 55,
+      bearing: -25,
+      duration: 1000,
+    });
+  } else {
+    mapboxMap.easeTo({
+      pitch: 0,
+      bearing: 0,
+      duration: 800,
+    });
+  }
+}
+
+// ============================================================
+// SHOW PATH (completion order route on map)
+// ============================================================
+let pathVisible = false;
+let pathMarkerElements = []; // number badge elements on map
+
+function getCompletedInOrder() {
+  return resources
+    .filter(r => r.completed && r.completedAt)
+    .sort((a, b) => a.completedAt - b.completedAt);
+}
+
+function toggleShowPath() {
+  const btn = document.getElementById('btn-show-path');
+  pathVisible = !pathVisible;
+  btn.classList.toggle('path-active', pathVisible);
+  btn.innerHTML = pathVisible
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Hide Path'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Show Path';
+
+  if (pathVisible) {
+    if (currentViewMode === 'map') {
+      drawPathOnMap();
+    } else {
+      drawRadialPath();
+    }
+  } else {
+    if (currentViewMode === 'map') {
+      removePathFromMap();
+    } else {
+      removeRadialPath();
+    }
+  }
+}
+
+async function drawPathOnMap() {
+  if (!mapboxMap || !mapboxInitialized) return;
+
+  const completed = getCompletedInOrder();
+  if (completed.length === 0) {
+    showToast('No completed resources yet. Mark some as done first!', 'error');
+    pathVisible = false;
+    document.getElementById('btn-show-path').classList.remove('path-active');
+    document.getElementById('btn-show-path').innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Show Path';
+    return;
+  }
+
+  const waypoints = completed.map(r => pixelToLngLat(r.x, r.y));
+
+  removePathFromMap();
+
+  // Add numbered badges on completed resource markers
+  completed.forEach((r, idx) => {
+    const [lng, lat] = pixelToLngLat(r.x, r.y);
+    const el = document.createElement('div');
+    el.className = 'mapbox-path-badge';
+    el.textContent = String(idx + 1);
+
+    const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+      .setLngLat([lng, lat])
+      .setOffset([22, -22])
+      .addTo(mapboxMap);
+
+    pathMarkerElements.push(marker);
+  });
+
+  if (waypoints.length < 2) {
+    mapboxMap.flyTo({ center: waypoints[0], zoom: 15, duration: 800 });
+    return;
+  }
+
+  // Build smooth curved path between waypoints (no Directions API needed for procedural map)
+  // Generate intermediate control points for smooth curves
+  const smoothCoords = [];
+  for (let i = 0; i < waypoints.length - 1; i++) {
+    const a = waypoints[i], b = waypoints[i + 1];
+    const steps = 20;
+    // Compute perpendicular offset for a gentle curve
+    const dx = b[0] - a[0], dy = b[1] - a[1];
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const bendFactor = dist * 0.3;
+    // Alternate bend direction
+    const sign = (i % 2 === 0) ? 1 : -1;
+    const cpx = (a[0] + b[0]) / 2 + (-dy / dist) * bendFactor * sign;
+    const cpy = (a[1] + b[1]) / 2 + (dx / dist) * bendFactor * sign;
+
+    for (let s = 0; s <= steps; s++) {
+      const t = s / steps;
+      const x = (1-t)*(1-t)*a[0] + 2*(1-t)*t*cpx + t*t*b[0];
+      const y = (1-t)*(1-t)*a[1] + 2*(1-t)*t*cpy + t*t*b[1];
+      smoothCoords.push([x, y]);
+    }
+  }
+
+  // Road bed (light tan ground path)
+  mapboxMap.addSource('completion-road-bed', {
+    type: 'geojson',
+    data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: smoothCoords } },
+  });
+  mapboxMap.addLayer({
+    id: 'completion-road-bed',
+    type: 'line',
+    source: 'completion-road-bed',
+    layout: { 'line-join': 'round', 'line-cap': 'round' },
+    paint: { 'line-color': '#d4c9a8', 'line-width': 16, 'line-opacity': 0.6 },
+  }, mapboxMap.getLayer('buildings-3d') ? 'buildings-3d' : undefined);
+
+  // Main path source
+  mapboxMap.addSource('completion-path', {
+    type: 'geojson',
+    data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: smoothCoords } },
+  });
+
+  // Layer 1: dark outer border
+  mapboxMap.addLayer({
+    id: 'completion-path-outline',
+    type: 'line',
+    source: 'completion-path',
+    layout: { 'line-join': 'round', 'line-cap': 'round' },
+    paint: { 'line-color': '#2c2799', 'line-width': 10, 'line-opacity': 0.3 },
+  });
+
+  // Layer 2: main road line
+  mapboxMap.addLayer({
+    id: 'completion-path-line',
+    type: 'line',
+    source: 'completion-path',
+    layout: { 'line-join': 'round', 'line-cap': 'round' },
+    paint: { 'line-color': '#4A55E0', 'line-width': 6, 'line-opacity': 0.9 },
+  });
+
+  // Layer 3: inner highlight
+  mapboxMap.addLayer({
+    id: 'completion-path-inner',
+    type: 'line',
+    source: 'completion-path',
+    layout: { 'line-join': 'round', 'line-cap': 'round' },
+    paint: { 'line-color': '#6C75F0', 'line-width': 3, 'line-opacity': 0.7 },
+  });
+
+  // Start marker (green)
+  const startEl = document.createElement('div');
+  startEl.style.cssText = 'width:18px;height:18px;border-radius:50%;background:#1a9a6c;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);';
+  pathMarkerElements.push(
+    new mapboxgl.Marker({ element: startEl, anchor: 'center' }).setLngLat(waypoints[0]).addTo(mapboxMap)
+  );
+
+  // End marker (red)
+  if (waypoints.length > 1) {
+    const endEl = document.createElement('div');
+    endEl.style.cssText = 'width:18px;height:18px;border-radius:50%;background:#e74c3c;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);';
+    pathMarkerElements.push(
+      new mapboxgl.Marker({ element: endEl, anchor: 'center' }).setLngLat(waypoints[waypoints.length - 1]).addTo(mapboxMap)
+    );
+  }
+
+  // Fit to path
+  const bounds = new mapboxgl.LngLatBounds();
+  smoothCoords.forEach(c => bounds.extend(c));
+  mapboxMap.fitBounds(bounds, { padding: 120, duration: 800 });
+}
+
+function removePathFromMap() {
+  if (!mapboxMap) return;
+
+  // Remove layers and sources
+  ['completion-path-inner', 'completion-path-line', 'completion-path-outline', 'completion-road-bed'].forEach(id => {
+    if (mapboxMap.getLayer(id)) mapboxMap.removeLayer(id);
+  });
+  ['completion-path', 'completion-road-bed'].forEach(id => {
+    if (mapboxMap.getSource(id)) mapboxMap.removeSource(id);
+  });
+
+  pathMarkerElements.forEach(m => m.remove());
+  pathMarkerElements = [];
+}
+
+// ============================================================
+// RADIAL VIEW PATH (curved lines on PIXI canvas)
+// ============================================================
+const radialPathContainer = new PIXI.Container();
+// Insert path container below markers but above radial grid
+viewport.addChildAt(radialPathContainer, viewport.children.indexOf(markersContainer));
+
+function drawRadialPath() {
+  removeRadialPath();
+
+  const completed = getCompletedInOrder();
+  if (completed.length === 0) {
+    showToast('No completed resources yet. Mark some as done first!', 'error');
+    pathVisible = false;
+    const btn = document.getElementById('btn-show-path');
+    btn.classList.remove('path-active');
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Show Path';
+    return;
+  }
+
+  // Draw curved lines between consecutive completed resources
+  if (completed.length >= 2) {
+    const g = new PIXI.Graphics();
+    radialPathContainer.addChild(g);
+
+    for (let i = 0; i < completed.length - 1; i++) {
+      const a = completed[i], b = completed[i + 1];
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      // Perpendicular offset for curve bend
+      const bendAmount = dist * 0.25;
+      const nx = -dy / dist * bendAmount, ny = dx / dist * bendAmount;
+      const cpx = mx + nx, cpy = my + ny;
+
+      // Outer glow / shadow
+      g.lineStyle(10, 0x4A55E0, 0.15);
+      g.moveTo(a.x, a.y);
+      g.quadraticCurveTo(cpx, cpy, b.x, b.y);
+
+      // Main path line
+      g.lineStyle(5, 0x4A55E0, 0.8);
+      g.moveTo(a.x, a.y);
+      g.quadraticCurveTo(cpx, cpy, b.x, b.y);
+
+      // Inner bright highlight
+      g.lineStyle(2, 0x6C75F0, 0.6);
+      g.moveTo(a.x, a.y);
+      g.quadraticCurveTo(cpx, cpy, b.x, b.y);
+    }
+
+    g.lineStyle(0);
+
+    // Draw directional arrows along the curves
+    for (let i = 0; i < completed.length - 1; i++) {
+      const a = completed[i], b = completed[i + 1];
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const bendAmount = dist * 0.25;
+      const nx = -dy / dist * bendAmount, ny = dx / dist * bendAmount;
+      const cpx = mx + nx, cpy = my + ny;
+
+      // Point at t=0.5 on the quadratic bezier
+      const t = 0.5;
+      const px = (1-t)*(1-t)*a.x + 2*(1-t)*t*cpx + t*t*b.x;
+      const py = (1-t)*(1-t)*a.y + 2*(1-t)*t*cpy + t*t*b.y;
+      // Tangent at t=0.5
+      const tx = 2*(1-t)*(cpx-a.x) + 2*t*(b.x-cpx);
+      const ty = 2*(1-t)*(cpy-a.y) + 2*t*(b.y-cpy);
+      const tLen = Math.sqrt(tx*tx+ty*ty) || 1;
+      const angle = Math.atan2(ty, tx);
+
+      // Draw arrow
+      const arrow = new PIXI.Graphics();
+      arrow.beginFill(0x4A55E0, 0.9);
+      arrow.moveTo(0, 0);
+      arrow.lineTo(-10, -5);
+      arrow.lineTo(-10, 5);
+      arrow.closePath();
+      arrow.endFill();
+      arrow.position.set(px, py);
+      arrow.rotation = angle;
+      radialPathContainer.addChild(arrow);
+    }
+  }
+
+  // Draw numbered badges at each completed resource
+  completed.forEach((r, idx) => {
+    const badge = new PIXI.Container();
+
+    const bg = new PIXI.Graphics();
+    bg.beginFill(0x4A55E0);
+    bg.drawCircle(0, 0, 12);
+    bg.endFill();
+    bg.lineStyle(2, 0xffffff);
+    bg.drawCircle(0, 0, 12);
+    bg.lineStyle(0);
+    badge.addChild(bg);
+
+    const numText = new PIXI.Text(String(idx + 1), {
+      fontFamily: '-apple-system, sans-serif',
+      fontSize: 10,
+      fontWeight: '700',
+      fill: 0xffffff,
+    });
+    numText.anchor.set(0.5, 0.5);
+    badge.addChild(numText);
+
+    badge.position.set(r.x + RING_R + 6, r.y - RING_R - 6);
+    radialPathContainer.addChild(badge);
+  });
+
+  // Draw start/end dots
+  if (completed.length >= 1) {
+    const startDot = new PIXI.Graphics();
+    startDot.beginFill(0x1a9a6c); startDot.drawCircle(0, 0, 7); startDot.endFill();
+    startDot.lineStyle(2, 0xffffff); startDot.drawCircle(0, 0, 7); startDot.lineStyle(0);
+    startDot.position.set(completed[0].x, completed[0].y + RING_R + 14);
+    radialPathContainer.addChild(startDot);
+
+    const startLabel = new PIXI.Text('Start', {
+      fontFamily: '-apple-system, sans-serif', fontSize: 8, fontWeight: '600', fill: 0x1a9a6c,
+    });
+    startLabel.anchor.set(0.5, 0);
+    startLabel.position.set(completed[0].x, completed[0].y + RING_R + 24);
+    radialPathContainer.addChild(startLabel);
+  }
+
+  if (completed.length >= 2) {
+    const last = completed[completed.length - 1];
+    const endDot = new PIXI.Graphics();
+    endDot.beginFill(0xe74c3c); endDot.drawCircle(0, 0, 7); endDot.endFill();
+    endDot.lineStyle(2, 0xffffff); endDot.drawCircle(0, 0, 7); endDot.lineStyle(0);
+    endDot.position.set(last.x, last.y + RING_R + 14);
+    radialPathContainer.addChild(endDot);
+
+    const endLabel = new PIXI.Text('Latest', {
+      fontFamily: '-apple-system, sans-serif', fontSize: 8, fontWeight: '600', fill: 0xe74c3c,
+    });
+    endLabel.anchor.set(0.5, 0);
+    endLabel.position.set(last.x, last.y + RING_R + 24);
+    radialPathContainer.addChild(endLabel);
+  }
+}
+
+function removeRadialPath() {
+  radialPathContainer.removeChildren();
+}
+
+// ============================================================
+// SVG ICON TEXTURES
+// ============================================================
+const SVG_ICONS = {
+  video: `<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="16" fill="white"/><circle cx="16" cy="16" r="15" fill="#F5E9FF"/><circle cx="16" cy="16" r="8" fill="#A02AF4"/><path d="M14.6665 14L17.9998 16L14.6665 18V14Z" fill="white" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  reading: `<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="16" fill="white"/><circle cx="16" cy="16" r="15" fill="#FFF7D6"/><rect width="16" height="16" transform="translate(8 8)" fill="#FFF7D6"/><path d="M21.9998 11.3333C21.2598 11.1 20.4465 11 19.6665 11C18.3665 11 16.9665 11.2667 15.9998 12C15.0332 11.2667 13.6332 11 12.3332 11C11.0332 11 9.63317 11.2667 8.6665 12V21.7667C8.6665 21.9333 8.83317 22.1 8.99984 22.1C9.0665 22.1 9.09984 22.0667 9.1665 22.0667C10.0665 21.6333 11.3665 21.3333 12.3332 21.3333C13.6332 21.3333 15.0332 21.6 15.9998 22.3333C16.8998 21.7667 18.5332 21.3333 19.6665 21.3333C20.7665 21.3333 21.8998 21.5333 22.8332 22.0333C22.8998 22.0667 22.9332 22.0667 22.9998 22.0667C23.1665 22.0667 23.3332 21.9 23.3332 21.7333V12C22.9332 11.7 22.4998 11.5 21.9998 11.3333ZM21.9998 20.3333C21.2665 20.1 20.4665 20 19.6665 20C18.5332 20 16.8998 20.4333 15.9998 21V13.3333C16.8998 12.7667 18.5332 12.3333 19.6665 12.3333C20.4665 12.3333 21.2665 12.4333 21.9998 12.6667V20.3333Z" fill="#E87000"/><path d="M19.6665 15C20.2532 15 20.8198 15.06 21.3332 15.1733V14.16C20.8065 14.06 20.2398 14 19.6665 14C18.5332 14 17.5065 14.1933 16.6665 14.5533V15.66C17.4198 15.2333 18.4665 15 19.6665 15ZM16.6665 16.3267V17.4333C17.4198 17.0067 18.4665 16.7733 19.6665 16.7733C20.2532 16.7733 20.8198 16.8333 21.3332 16.9467V15.9333C20.8065 15.8333 20.2398 15.7733 19.6665 15.7733C18.5332 15.7733 17.5065 15.9733 16.6665 16.3267ZM19.6665 17.5533C18.5332 17.5533 17.5065 17.7467 16.6665 18.1067V19.2133C17.4198 18.7867 18.4665 18.5533 19.6665 18.5533C20.2532 18.5533 20.8198 18.6133 21.3332 18.7267V17.7133C20.8065 17.6067 20.2398 17.5533 19.6665 17.5533Z" fill="#E87000"/></svg>`,
+};
+
+const iconTextures = {};
+const ICON_SCALE = 40;
+
+function loadIconTextures() {
+  return Promise.all(Object.entries(SVG_ICONS).map(([key, svgStr]) => {
+    return new Promise((resolve) => {
+      const blob = new Blob([svgStr], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = ICON_SCALE; canvas.height = ICON_SCALE;
+        canvas.getContext('2d').drawImage(img, 0, 0, ICON_SCALE, ICON_SCALE);
+        iconTextures[key] = PIXI.Texture.from(canvas);
+        URL.revokeObjectURL(url);
+        resolve();
+      };
+      img.src = url;
+    });
+  }));
+}
+
+// ============================================================
+// MARKERS
+// ============================================================
+const markerNodes = [];
+const MARKER_R = 16, RING_R = 20;
+
+function createMarkers() {
+  markersContainer.removeChildren();
+  markerNodes.length = 0;
+
+  resources.forEach(r => {
+    const t = TYPES[r.type] || TYPES.youtube;
+    const mc = new PIXI.Container();
+    mc.position.set(r.x, r.y);
+    mc.resourceData = r;
+
+    // Shadow
+    const shadow = new PIXI.Graphics();
+    shadow.beginFill(0x000000, 0.12);
+    shadow.drawCircle(0, 2, RING_R);
+    shadow.endFill();
+    shadow.filters = [new PIXI.BlurFilter(5)];
+    mc.addChild(shadow);
+
+    // Icon
+    const iconKey = r.type === 'youtube' ? 'video' : 'reading';
+    if (iconTextures[iconKey]) {
+      const sprite = new PIXI.Sprite(iconTextures[iconKey]);
+      sprite.anchor.set(0.5, 0.5);
+      sprite.width = RING_R * 2; sprite.height = RING_R * 2;
+      mc.addChild(sprite);
+    } else {
+      const outerRing = new PIXI.Graphics();
+      outerRing.beginFill(t.ringColor); outerRing.drawCircle(0, 0, RING_R); outerRing.endFill();
+      mc.addChild(outerRing);
+      const innerCircle = new PIXI.Graphics();
+      innerCircle.beginFill(t.color); innerCircle.drawCircle(0, 0, MARKER_R); innerCircle.endFill();
+      mc.addChild(innerCircle);
+    }
+
+    // Completed badge
+    if (r.completed) {
+      const badge = new PIXI.Graphics();
+      badge.beginFill(0x1a9a6c); badge.drawCircle(MARKER_R * 0.8, -MARKER_R * 0.8, 6); badge.endFill();
+      badge.lineStyle(1.5, 0xffffff); badge.drawCircle(MARKER_R * 0.8, -MARKER_R * 0.8, 6); badge.lineStyle(0);
+      mc.addChild(badge);
+      const ck = new PIXI.Text('\u2713', { fontSize: 7, fontWeight: 'bold', fill: 0xffffff });
+      ck.anchor.set(0.5, 0.5); ck.position.set(MARKER_R * 0.8, -MARKER_R * 0.8);
+      mc.addChild(ck);
+    }
+
+    // Name pill (zoom level 2)
+    const pillContainer = new PIXI.Container();
+    pillContainer.visible = false;
+    pillContainer.position.set(0, RING_R + 6);
+    const pillLabel = t.label.split(' ')[0] + ': ' + r.name;
+    const truncPill = pillLabel.length > 30 ? pillLabel.substring(0, 28) + '\u2026' : pillLabel;
+    const pillText = new PIXI.Text(truncPill, {
+      fontFamily: '-apple-system, sans-serif', fontSize: 9, fontWeight: '600', fill: t.color,
+    });
+    pillText.anchor.set(0.5, 0);
+    const pillW = pillText.width + 14, pillH = 18;
+    const pillBg = new PIXI.Graphics();
+    pillBg.beginFill(PIXI.utils.string2hex(t.pillBg));
+    pillBg.drawRoundedRect(-pillW / 2, -2, pillW, pillH, 9);
+    pillBg.endFill();
+    pillContainer.addChild(pillBg, pillText);
+    mc.addChild(pillContainer);
+    mc._pill = pillContainer;
+
+    // Info card (zoom level 3)
+    const cardContainer = new PIXI.Container();
+    cardContainer.visible = false;
+    cardContainer.position.set(0, RING_R + 6);
+    const cardW = 183, cardH = 54;
+    const cardBg = new PIXI.Graphics();
+    cardBg.beginFill(PIXI.utils.string2hex(t.pillBg));
+    cardBg.drawRoundedRect(-cardW / 2, 0, cardW, cardH, 10);
+    cardBg.endFill();
+    cardContainer.addChild(cardBg);
+    const topText = new PIXI.Text(t.label, {
+      fontFamily: '-apple-system, sans-serif', fontSize: 10, fontWeight: '700', fill: t.color,
+    });
+    topText.position.set(-cardW / 2 + 12, 10);
+    cardContainer.addChild(topText);
+    const descText = r.name.length > 28 ? r.name.substring(0, 26) + '\u2026' : r.name;
+    const descLabel = new PIXI.Text(descText, {
+      fontFamily: '-apple-system, sans-serif', fontSize: 10, fontWeight: '400', fill: 0x606060,
+    });
+    descLabel.position.set(-cardW / 2 + 12, 30);
+    cardContainer.addChild(descLabel);
+    mc.addChild(cardContainer);
+    mc._card = cardContainer;
+
+    // Hover ring
+    const ring = new PIXI.Graphics();
+    ring.lineStyle(2.5, 0xffffff); ring.drawCircle(0, 0, RING_R + 2); ring.lineStyle(0);
+    ring.visible = false;
+    mc.addChild(ring);
+    mc._ring = ring;
+
+    // Interactivity
+    mc.eventMode = 'static';
+    mc.cursor = 'pointer';
+    mc.hitArea = new PIXI.Circle(0, 0, RING_R + 4);
+
+    mc.on('pointerover', (e) => {
+      mc._ring.visible = true; mc.scale.set(1.1);
+      const tt = document.getElementById('tooltip');
+      document.getElementById('tt-title').textContent = r.name;
+      document.getElementById('tt-sub').textContent = `${t.label} \u00B7 ${r.module || 'General'}`;
+      const gp = e.data.global;
+      tt.style.left = (gp.x + 14) + 'px'; tt.style.top = (gp.y - 40) + 'px';
+      tt.classList.add('visible');
+    });
+    mc.on('pointerout', () => {
+      mc._ring.visible = false; mc.scale.set(1);
+      document.getElementById('tooltip').classList.remove('visible');
+    });
+    mc.on('pointertap', () => openDetail(r));
+
+    markersContainer.addChild(mc);
+    markerNodes.push(mc);
+  });
+}
+
+// ============================================================
+// ZOOM-DEPENDENT VISIBILITY
+// ============================================================
+function updateVisibility() {
+  const z = cam.zoom;
+  markerNodes.forEach(mc => {
+    mc._pill.visible = false;
+    mc._card.visible = false;
+    if (z >= 1.6) mc._card.visible = true;
+    else if (z >= 1.05) mc._pill.visible = true;
+  });
+}
+
+// ============================================================
+// VIEW MODE SWITCHING
+// ============================================================
+function setViewMode(mode) {
+  if (mode === 'map' && resources.length > 0 && !mapGenerated) {
+    // Show generate map overlay
+    document.getElementById('generate-map-overlay').style.display = 'flex';
+    return;
+  }
+
+  // If switching to map but Mapbox isn't initialized yet, initialize it
+  if (mode === 'map' && !mapboxInitialized) {
+    const token = getMapboxToken();
+    if (!token) {
+      // Need token first
+      document.getElementById('mapbox-token-overlay').style.display = 'flex';
+      return;
+    }
+    // Mapbox needs a visible container to initialize properly
+    document.getElementById('pixi-container').style.display = 'none';
+    document.getElementById('mapbox-container').style.display = 'block';
+    document.getElementById('mc-dimension-btns').style.display = 'block';
+    // Initialize and switch once ready
+    initMapbox(token, () => {
+      setViewMode('map');
+    });
+    return; // Don't proceed until mapbox is ready
+  }
+
+  currentViewMode = mode;
+  document.getElementById('vm-radial').classList.toggle('active', mode === 'radial');
+  document.getElementById('vm-map').classList.toggle('active', mode === 'map');
+
+  const isMap = mode === 'map';
+
+  // Toggle PIXI (radial) vs Mapbox (map)
+  document.getElementById('pixi-container').style.display = isMap ? 'none' : 'block';
+  document.getElementById('mapbox-container').style.display = isMap ? 'block' : 'none';
+
+  // Show 2D/3D only in map view; panel always visible
+  document.getElementById('mc-dimension-btns').style.display = isMap ? 'block' : 'none';
+
+  // Show/hide PIXI zoom controls (they don't apply to mapbox)
+  document.querySelector('.bottom-controls').style.display = isMap ? 'none' : 'flex';
+
+  // Reset path when switching views
+  if (pathVisible) {
+    pathVisible = false;
+    if (isMap) {
+      removeRadialPath();
+    } else {
+      removePathFromMap();
+    }
+    const btn = document.getElementById('btn-show-path');
+    btn.classList.remove('path-active');
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Show Path';
+  }
+
+  if (isMap && mapboxMap) {
+    mapboxMap.resize();
+    refreshProceduralWorld();
+  }
+
+  updateVisibility();
+}
+
+function completeMapViewSwitch() {
+  mapGenerated = true;
+  saveMapData({ generated: true, type: 'mapbox' });
+
+  document.getElementById('generate-map-overlay').style.display = 'none';
+
+  currentViewMode = 'map';
+  document.getElementById('vm-radial').classList.remove('active');
+  document.getElementById('vm-map').classList.add('active');
+
+  document.getElementById('pixi-container').style.display = 'none';
+  document.getElementById('mapbox-container').style.display = 'block';
+  document.getElementById('mc-dimension-btns').style.display = 'block';
+  document.querySelector('.bottom-controls').style.display = 'none';
+
+  if (mapboxMap) {
+    mapboxMap.resize();
+    refreshProceduralWorld();
+  }
+
+  updateVisibility();
+  showToast('Map generated!', 'success');
+}
+
+function generateMap() {
+  const btn = document.getElementById('btn-generate-map');
+  const genText = document.getElementById('generating-text');
+  btn.style.display = 'none';
+  genText.classList.add('active');
+
+  setTimeout(() => {
+    genText.classList.remove('active');
+    btn.style.display = '';
+
+    // Check for Mapbox token
+    const token = getMapboxToken();
+    if (!token) {
+      document.getElementById('generate-map-overlay').style.display = 'none';
+      document.getElementById('mapbox-token-overlay').style.display = 'flex';
+      return;
+    }
+
+    // Initialize Mapbox if needed
+    if (!mapboxInitialized) {
+      initMapbox(token, () => {
+        completeMapViewSwitch();
+      });
+    } else {
+      completeMapViewSwitch();
+    }
+  }, 600);
+}
+
+// ============================================================
+// PAN / ZOOM
+// ============================================================
+const pixiContainer = document.getElementById('pixi-container');
+let dragging = false, dragStart = { x: 0, y: 0 }, camStart = { x: 0, y: 0 };
+
+pixiContainer.addEventListener('pointerdown', e => {
+  dragging = true;
+  dragStart = { x: e.clientX, y: e.clientY };
+  camStart = { x: cam.x, y: cam.y };
+  pixiContainer.classList.add('grabbing');
+});
+window.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  cam.x = camStart.x - (e.clientX - dragStart.x) / cam.zoom;
+  cam.y = camStart.y - (e.clientY - dragStart.y) / cam.zoom;
+  updateViewport();
+});
+window.addEventListener('pointerup', () => { dragging = false; pixiContainer.classList.remove('grabbing'); });
+
+pixiContainer.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY > 0 ? 0.9 : 1.1;
+  const newZ = Math.min(4, Math.max(0.25, cam.zoom * factor));
+  const wx = (e.clientX - W / 2) / cam.zoom + cam.x;
+  const wy = (e.clientY - H / 2) / cam.zoom + cam.y;
+  cam.zoom = newZ;
+  cam.x = wx - (e.clientX - W / 2) / cam.zoom;
+  cam.y = wy - (e.clientY - H / 2) / cam.zoom;
+  updateViewport(); updateVisibility();
+}, { passive: false });
+
+// Touch pinch
+let lastDist = 0;
+pixiContainer.addEventListener('touchstart', e => {
+  if (e.touches.length === 1) {
+    dragging = true;
+    dragStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    camStart = { x: cam.x, y: cam.y };
+  } else if (e.touches.length === 2) {
+    dragging = false;
+    lastDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+  }
+}, { passive: false });
+pixiContainer.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (e.touches.length === 1 && dragging) {
+    cam.x = camStart.x - (e.touches[0].clientX - dragStart.x) / cam.zoom;
+    cam.y = camStart.y - (e.touches[0].clientY - dragStart.y) / cam.zoom;
+    updateViewport();
+  } else if (e.touches.length === 2) {
+    const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    cam.zoom = Math.min(4, Math.max(0.25, cam.zoom * (d / lastDist)));
+    lastDist = d;
+    updateViewport(); updateVisibility();
+  }
+}, { passive: false });
+pixiContainer.addEventListener('touchend', () => { dragging = false; });
+
+// ============================================================
+// DETAIL PANEL
+// ============================================================
+function openDetail(r) {
+  selected = r;
+  const t = TYPES[r.type] || TYPES.youtube;
+
+  let actionBtn = '';
+  if (r.type === 'youtube' && r.url) {
+    actionBtn = `<button class="dp-action-primary" style="background:${t.css}" onclick="window.open('${r.url.replace(/'/g, "\\'")}', '_blank')">${t.action}</button>`;
+  } else if (r.type === 'pdf' && r.fileName) {
+    actionBtn = `<button class="dp-action-primary" style="background:${t.css}" onclick="alert('PDF: ${r.fileName.replace(/'/g, "\\'")}')">${t.action}</button>`;
+  } else {
+    actionBtn = `<button class="dp-action-primary" style="background:${t.css}">${t.action}</button>`;
+  }
+
+  let extraInfo = '';
+  if (r.type === 'youtube' && r.url) {
+    extraInfo = `<div class="dp-meta-item">Link<span style="font-size:11px;word-break:break-all;">${r.url.length > 40 ? r.url.substring(0, 38) + '...' : r.url}</span></div>`;
+  } else if (r.type === 'pdf' && r.fileName) {
+    extraInfo = `<div class="dp-meta-item">File<span>${r.fileName}</span></div>`;
+  }
+
+  const markDoneBtn = r.completed
+    ? `<button class="dp-action-secondary" style="background:#e8f5ee;color:#1a9a6c;border-color:#1a9a6c;" disabled>&#10003; Completed</button>`
+    : `<button class="dp-action-secondary" onclick="markResourceDone(${r.id})">Mark as Done</button>`;
+
+  document.getElementById('dp-content').innerHTML = `
+    <div class="dp-header">
+      <div class="dp-type" style="background:${t.bg};color:${t.css};">${t.label}</div>
+      <div class="dp-title">${r.name}</div>
+      <div class="dp-subtitle">${r.topicName || r.module || ''}</div>
+    </div>
+    <div class="dp-meta">
+      <div class="dp-meta-item">Module<span>${r.module || 'N/A'}</span></div>
+      ${extraInfo}
+      <div class="dp-meta-item">Status<span style="color:${r.completed ? '#1a9a6c' : '#e67e22'}">${r.completed ? 'Completed \u2713' : 'Not started'}</span></div>
+    </div>
+    <div class="dp-actions">
+      ${actionBtn}
+      ${markDoneBtn}
+    </div>`;
+  document.getElementById('detail-panel').classList.add('open');
+  document.getElementById('legend-panel').classList.remove('visible');
+}
+
+document.getElementById('dp-close').addEventListener('click', () => {
+  document.getElementById('detail-panel').classList.remove('open');
+  selected = null;
+});
+
+function markResourceDone(resourceId) {
+  const r = resources.find(res => res.id === resourceId);
+  if (!r || r.completed) return;
+
+  r.completed = true;
+  r.completedAt = Date.now(); // Timestamp to track completion order
+  saveResources(resources);
+
+  // Refresh detail panel to show updated state
+  openDetail(r);
+
+  // Refresh PIXI markers (for completed badge)
+  createMarkers();
+  updateVisibility();
+
+  // Refresh procedural world (completed buildings get green roof)
+  if (mapboxInitialized && mapboxMap) {
+    refreshProceduralWorld();
+  }
+
+  showToast('Resource marked as done!', 'success');
+}
+
+// ============================================================
+// CONTROLS
+// ============================================================
+function animateTo(tx, ty, tz) {
+  const sx = cam.x, sy = cam.y, sz = cam.zoom, dur = 600, start = performance.now();
+  (function step(now) {
+    const t = Math.min(1, (now - start) / dur), e = 1 - Math.pow(1 - t, 3);
+    cam.x = sx + (tx - sx) * e; cam.y = sy + (ty - sy) * e; cam.zoom = sz + (tz - sz) * e;
+    updateViewport(); updateVisibility();
+    if (t < 1) requestAnimationFrame(step);
+  })(performance.now());
+}
+
+function animateZoom(tz) {
+  const sz = cam.zoom, dur = 300, start = performance.now();
+  (function step(now) {
+    const t = Math.min(1, (now - start) / dur);
+    cam.zoom = sz + (tz - sz) * (1 - Math.pow(1 - t, 3));
+    updateViewport(); updateVisibility();
+    if (t < 1) requestAnimationFrame(step);
+  })(performance.now());
+}
+
+document.getElementById('btn-info').addEventListener('click', () => {
+  document.getElementById('legend-panel').classList.toggle('visible');
+  document.getElementById('detail-panel').classList.remove('open');
+  selected = null;
+});
+document.getElementById('btn-zin').addEventListener('click', () => animateZoom(Math.min(4, cam.zoom * 1.4)));
+document.getElementById('btn-zout').addEventListener('click', () => animateZoom(Math.max(0.25, cam.zoom * 0.7)));
+document.getElementById('bc-home').addEventListener('click', () => { window.location.href = 'homepage.html'; });
+
+// Search
+document.getElementById('search-input').addEventListener('input', e => {
+  const q = e.target.value.toLowerCase();
+  if (q.length < 2) {
+    searchHighlight = null;
+    markerNodes.forEach(mc => { mc._ring.visible = false; mc.scale.set(1); });
+    return;
+  }
+  const match = resources.find(r => r.name.toLowerCase().includes(q));
+  if (match) {
+    searchHighlight = match;
+    animateTo(match.x, match.y, 1.8);
+    markerNodes.forEach(mc => {
+      const isMatch = mc.resourceData.id === match.id;
+      mc._ring.visible = isMatch;
+      mc.scale.set(isMatch ? 1.3 : 1);
+    });
+  }
+});
+
+// Pulse animation
+app.ticker.add(() => {
+  pulseLayer.clear();
+  if (currentRes && currentRes.x && currentRes.y) {
+    const pulse = RING_R + 4 + Math.sin(Date.now() / 400) * 5;
+    pulseLayer.beginFill(0x4285f4, 0.12);
+    pulseLayer.drawCircle(currentRes.x, currentRes.y, pulse);
+    pulseLayer.endFill();
+  }
+});
+
+// Legend
+const legendEl = document.getElementById('legend-items');
+Object.entries(TYPES).forEach(([k, t]) => {
+  legendEl.innerHTML += `<div class="legend-row"><div class="legend-icon" style="background:${t.css}"></div>${t.label}</div>`;
+});
+
+// Resize
+window.addEventListener('resize', () => {
+  W = window.innerWidth; H = window.innerHeight;
+  app.renderer.resize(W, H); updateViewport();
+  if (mapboxMap) mapboxMap.resize();
+});
+
+// ============================================================
+// ADD RESOURCE MODAL
+// ============================================================
+let selectedPdfFileName = '';
+
+function openAddResourceModal() {
+  const topicSelect = document.getElementById('res-topic');
+  topicSelect.innerHTML = '<option value="">Choose Topic</option>';
+  COURSE_TOPICS.forEach(t => { topicSelect.innerHTML += `<option value="${t.name}">${t.name}</option>`; });
+  if (COURSE_TOPICS.length === 0) {
+    MODULES.forEach(m => { topicSelect.innerHTML += `<option value="${m}">${m}</option>`; });
+  }
+  document.getElementById('res-name').value = '';
+  document.getElementById('res-topic').value = '';
+  document.getElementById('res-type').value = '';
+  document.getElementById('res-youtube-url').value = '';
+  document.getElementById('pdf-file-input').value = '';
+  document.getElementById('youtube-field').style.display = 'none';
+  document.getElementById('pdf-field').style.display = 'none';
+  document.getElementById('pdf-upload-area').textContent = 'Click to upload PDF file';
+  document.getElementById('pdf-upload-area').classList.remove('has-file');
+  selectedPdfFileName = '';
+  document.getElementById('add-resource-modal').classList.add('open');
+}
+function closeAddResourceModal() { document.getElementById('add-resource-modal').classList.remove('open'); }
+function onResourceTypeChange() {
+  const type = document.getElementById('res-type').value;
+  document.getElementById('youtube-field').style.display = type === 'youtube' ? 'block' : 'none';
+  document.getElementById('pdf-field').style.display = type === 'pdf' ? 'block' : 'none';
+}
+function onPdfFileSelected() {
+  const fi = document.getElementById('pdf-file-input');
+  if (fi.files.length > 0) {
+    selectedPdfFileName = fi.files[0].name;
+    const area = document.getElementById('pdf-upload-area');
+    area.textContent = selectedPdfFileName; area.classList.add('has-file');
+  }
+}
+function showToast(msg, type) {
+  const t = document.getElementById('toast-notif');
+  t.textContent = msg; t.className = `toast-notification ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+function submitResource() {
+  const name = document.getElementById('res-name').value.trim();
+  const topicName = document.getElementById('res-topic').value;
+  const type = document.getElementById('res-type').value;
+  if (!name) { showToast('Please enter a resource name.', 'error'); return; }
+  if (!topicName) { showToast('Please select a topic.', 'error'); return; }
+  if (!type) { showToast('Please select a resource type.', 'error'); return; }
+  let url = '', fileName = '';
+  if (type === 'youtube') {
+    url = document.getElementById('res-youtube-url').value.trim();
+  } else if (type === 'pdf') {
+    fileName = selectedPdfFileName;
+  }
+  const newResource = { id: Date.now(), name, type, topicName, url, fileName, completed: false, isCurrent: false };
+  resources.push(newResource);
+  placeResource(newResource, resources.length - 1);
+  saveResources(resources);
+
+  // If mapbox map exists, rebuild the procedural world with new building
+  if (mapGenerated && mapboxMap && mapboxInitialized) {
+    refreshProceduralWorld();
+  }
+
+  createMarkers();
+  updateVisibility();
+  updateEmptyState();
+  document.getElementById('resource-count').textContent = `All resources (${resources.length}) \u25BE`;
+  closeAddResourceModal();
+  showToast('Resource added!', 'success');
+  setTimeout(() => animateTo(newResource.x, newResource.y, 1.5), 300);
+}
+
+document.getElementById('add-resource-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeAddResourceModal();
+});
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeAddResourceModal(); });
+
+// ============================================================
+// EMPTY STATE
+// ============================================================
+function updateEmptyState() {
+  document.getElementById('empty-map-state').style.display = resources.length === 0 ? 'block' : 'none';
+}
+
+// ============================================================
+// INIT
+// ============================================================
+document.getElementById('bc-course-name').textContent = COURSE_NAME;
+document.title = `${COURSE_NAME} \u2014 Learning Navigator`;
+document.getElementById('resource-count').textContent = `All resources (${resources.length}) \u25BE`;
+
+drawRadialGrid();
+updateViewport();
+
+// Check if map was previously generated (for mapGenerated flag)
+const savedMap = loadMapData();
+
+loadIconTextures().then(() => {
+  createMarkers();
+  setViewMode('radial'); // Default to radial view
+  updateEmptyState();
+  setTimeout(() => document.getElementById('loading').classList.add('hidden'), 400);
+});
+</script>
+</body>
+</html>
