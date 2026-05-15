@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Gooru Learning - Choose Your Role</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700&family=Mulish:wght@400;700&family=Public+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* ===== Role Selection Page Specific Styles ===== */
+    .role-panel {
+      width: 520px;
+      max-width: 100%;
+    }
+
+    .role-panel h2 {
+      font-family: 'Public Sans', sans-serif;
+      font-weight: 600;
+      font-size: 36px;
+      color: #161c24;
+      line-height: 1.3;
+      margin-bottom: 6px;
+    }
+
+    .role-panel .subtitle {
+      font-family: 'Public Sans', sans-serif;
+      font-size: 16px;
+      color: #637381;
+      line-height: 1.5;
+      margin-bottom: 36px;
+      font-weight: 400;
+    }
+
+    .role-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-bottom: 36px;
+    }
+
+    .role-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 20px 24px;
+      border: 2px solid #e5e7eb;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      background: #fff;
+      position: relative;
+    }
+
+    .role-card:hover {
+      border-color: #c7d2fe;
+      background: #fafbff;
+      box-shadow: 0 2px 12px rgba(37, 99, 235, 0.06);
+    }
+
+    .role-card.selected {
+      border-color: #2563eb;
+      background: #eff3ff;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+
+    .role-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .role-icon svg {
+      width: 26px;
+      height: 26px;
+    }
+
+    .role-icon.learner { background: #ecfbf5; }
+    .role-icon.learner svg { color: #43bc89; }
+
+    .role-icon.teacher { background: #eff3ff; }
+    .role-icon.teacher svg { color: #2563eb; }
+
+    .role-icon.ta { background: #fff7ed; }
+    .role-icon.ta svg { color: #e67e22; }
+
+    .role-info {
+      flex: 1;
+    }
+
+    .role-title {
+      font-family: 'Public Sans', sans-serif;
+      font-weight: 700;
+      font-size: 17px;
+      color: #161c24;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .role-desc {
+      font-family: 'Public Sans', sans-serif;
+      font-weight: 400;
+      font-size: 13.5px;
+      color: #637381;
+      line-height: 1.55;
+    }
+
+    .role-check {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid #d1d5db;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .role-card.selected .role-check {
+      border-color: #2563eb;
+      background: #2563eb;
+    }
+
+    .role-check svg {
+      width: 12px;
+      height: 12px;
+      color: #fff;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .role-card.selected .role-check svg {
+      opacity: 1;
+    }
+
+    .continue-btn {
+      width: 100%;
+      padding: 13px 16px;
+      background: #2563eb;
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-family: 'Public Sans', sans-serif;
+      font-weight: 700;
+      font-size: 16px;
+      line-height: 26px;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s, transform 0.15s;
+    }
+
+    .continue-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .continue-btn:not(:disabled):hover {
+      background: #1d4ed8;
+      transform: translateY(-1px);
+    }
+
+    .continue-btn:not(:disabled):active {
+      transform: translateY(0);
+    }
+
+    .back-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      margin-top: 20px;
+      font-family: 'Public Sans', sans-serif;
+      font-weight: 600;
+      font-size: 14px;
+      color: #637381;
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    .back-link:hover {
+      color: #2563eb;
+    }
+
+    .back-link svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* Welcome name highlight */
+    .welcome-name {
+      color: #43bc89;
+      font-weight: 700;
+    }
+
+    /* Feature chips */
+    .role-features {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .feature-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-family: 'Public Sans', sans-serif;
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: 0.1px;
+    }
+
+    .feature-chip svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .role-card.learner-card .feature-chip { background: #ecfbf5; color: #118d57; }
+    .role-card.teacher-card .feature-chip { background: #eff3ff; color: #2563eb; }
+    .role-card.ta-card .feature-chip { background: #fff7ed; color: #c2590a; }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .role-panel { width: 100%; padding: 0 20px; }
+      .role-panel h2 { font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="toast" class="toast"></div>
+
+  <div class="container">
+    <!-- Left Panel -->
+    <div class="left-panel">
+      <div class="illustration">
+        <img src="Assets/Left_banner_image.svg" alt="E-learning illustration">
+      </div>
+
+      <div class="branding">
+        <h1><span class="my">MY</span> <span class="gooru">GOORU LEARNING</span></h1>
+        <p>learn something new anywhere &amp; anytime</p>
+      </div>
+    </div>
+
+    <!-- Right Panel -->
+    <div class="right-panel">
+      <div class="role-panel">
+        <h2>Welcome, <span class="welcome-name" id="welcome-name">there</span>!</h2>
+        <p class="subtitle">How will you be using Gooru Learning? Pick the role that best describes you.</p>
+
+        <div class="role-cards">
+
+          <!-- Learner -->
+          <div class="role-card learner-card" data-role="learner" onclick="selectRole(this)">
+            <div class="role-icon learner">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+              </svg>
+            </div>
+            <div class="role-info">
+              <div class="role-title">Learner</div>
+              <p class="role-desc">Explore courses at your own pace. Access videos, readings, quizzes, and interactive activities. Track your progress on the learning map and see how far you've come.</p>
+              <div class="role-features">
+                <span class="feature-chip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                  Enroll in courses
+                </span>
+                <span class="feature-chip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                  Track progress
+                </span>
+                <span class="feature-chip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                  Take quizzes
+                </span>
+              </div>
+            </div>
+            <div class="role-check">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+          </div>
+
+          <!-- Teacher -->
+          <div class="role-card teacher-card" data-role="teacher" onclick="selectRole(this)">
+            <div class="role-icon teacher">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            </div>
+            <div class="role-info">
+              <div class="role-title">Teacher</div>
+              <p class="role-desc">Design and publish courses with custom modules and topics. Build learning paths, set assignments, and monitor your students' progress through the navigator map.</p>
+              <div class="role-features">
+                <span class="feature-chip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                  Create courses
+                </span>
+                <span class="feature-chip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                  Add modules & topics
+                </span>
+                <span class="feature-chip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                  View analytics
+                </span>
+              </div>
+            </div>
+            <div class="role-check">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+          </div>
+
+          <!-- Teaching Assistant -->
+          <div class="role-card ta-card" data-role="ta" onclick="selectRole(this)">
+            <div class="role-icon ta">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                <line x1="8" y1="21" x2="16" y2="21"/>
+                <line x1="12" y1="17" x2="12" y2="21"/>
+              </svg>
+            </div>
+            <div class="role-info">
+              <div class="role-title">Teaching Assistant</div>
+              <p class="role-desc">Support teachers by managing course content and guiding learners. View all enrolled students, help grade assignments, and provide feedback across modules.</p>
+              <div class="role-features">
+                <span class="feature-chip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                  View all students
+                </span>
+                <span class="feature-chip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                  Grade assignments
+                </span>
+                <span class="feature-chip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                  Manage content
+                </span>
+              </div>
+            </div>
+            <div class="role-check">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <button class="continue-btn" id="continueBtn" disabled onclick="handleContinue()">Continue</button>
+
+        <a href="signup.html" class="back-link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"/>
+            <polyline points="12 19 5 12 12 5"/>
+          </svg>
+          Back to Sign up
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let selectedRole = null;
+
+    // ============================================
+    // Pre-fill welcome name from pending signup data
+    // ============================================
+    (function() {
+      try {
+        const pending = localStorage.getItem('gooruPendingSignup');
+        if (pending) {
+          const data = JSON.parse(pending);
+          if (data.name) {
+            const firstName = data.name.split(' ')[0];
+            document.getElementById('welcome-name').textContent = firstName;
+          }
+        }
+      } catch(e) {}
+    })();
+
+    // ============================================
+    // Role Selection
+    // ============================================
+    function selectRole(card) {
+      // Deselect all
+      document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
+
+      // Select this one
+      card.classList.add('selected');
+      selectedRole = card.dataset.role;
+
+      // Enable continue button
+      document.getElementById('continueBtn').disabled = false;
+    }
+
+    // ============================================
+    // Continue — Save session with role and go to homepage
+    // ============================================
+    function handleContinue() {
+      if (!selectedRole) {
+        showToast('Please select a role to continue', 'error');
+        return;
+      }
+
+      // Read pending signup data
+      let name = 'User', email = '', picture = '';
+      try {
+        const pending = localStorage.getItem('gooruPendingSignup');
+        if (pending) {
+          const data = JSON.parse(pending);
+          name = data.name || name;
+          email = data.email || email;
+          picture = data.picture || picture;
+        }
+      } catch(e) {}
+
+      // Save full session with role
+      const session = {
+        name: name,
+        email: email,
+        picture: picture,
+        role: selectedRole,
+        loggedIn: true,
+        loginTime: new Date().toISOString(),
+      };
+      localStorage.setItem('gooruSession', JSON.stringify(session));
+
+      // Clear pending signup data
+      localStorage.removeItem('gooruPendingSignup');
+
+      // Disable button
+      const btn = document.getElementById('continueBtn');
+      btn.textContent = 'Setting up your account...';
+      btn.disabled = true;
+
+      showToast(`Welcome aboard as ${selectedRole === 'ta' ? 'a Teaching Assistant' : 'a ' + selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)}!`, 'success');
+
+      setTimeout(() => {
+        window.location.href = 'homepage.html';
+      }, 800);
+    }
+
+    // ============================================
+    // Toast
+    // ============================================
+    function showToast(message, type) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = `toast ${type} show`;
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+  </script>
+</body>
+</html>
